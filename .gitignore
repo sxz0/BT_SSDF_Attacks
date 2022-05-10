@@ -1,0 +1,5 @@
+build/
+cmake-build-debug/
+.idea/
+avro-c-1.7.7/
+CMakeCache.txt
