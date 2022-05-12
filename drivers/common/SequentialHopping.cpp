@@ -44,8 +44,11 @@ uint64_t SequentialHopping::nextHop() {
   uint64_t ret_freq = mFreqs.at(mIndex);
   mIndex++;
 
-  if (mIndex >= mFreqs.size())
+  if (mIndex >= mFreqs.size()){
     mIndex = 0;
+    std::cout << "Hopped through all frequency bands, start again!"<< std::endl;
+  }
+    
 
   return ret_freq;
 }
