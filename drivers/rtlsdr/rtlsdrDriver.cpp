@@ -553,7 +553,7 @@ void rtlsdrDriver::SyncSampling() {
   //----------------------------------------------------------------------------------------------------------
   // REPEAT - Setup
   //---------------------
-  // std::vector<std::complex<float>> repeat_source_segment;
+  std::vector<std::complex<float>> repeat_source_segment;
 
   //----------------------------------------------------------------------------------------------------------
   // MIMIC - Setup
@@ -576,15 +576,32 @@ void rtlsdrDriver::SyncSampling() {
   //-------------------------------------------------------------------------------
 
   //----------------------------------------------------------------------------------------------------------
-  // FREEZE / DELAY  - Setup
+  // FREEZE - Setup
   //---------------------
-
-  //  std::uniform_real_distribution<double> dist(0, 10);
-  //  std::random_device urandom("/dev/urandom");
+  // std::vector<std::vector<std::complex<float>>> freeze_source_segment;
+  // int affected_frequencies = 0;
+  // int current_frequency = 0;
+  // bool freeze = false;
 
   //-------------------------------------------------------------------------------
 
+  //----------------------------------------------------------------------------------------------------------
+  // DELAY - Setup
+  // //---------------------
+  // int affected_frequencies = 0;
+  // int current_frequency = 0;
+  // int delay = 8;
+  // int current_iteration = 0;
+  // bool init = true;
+  // std::vector<std::vector<std::vector<std::complex<float>>>> delay_source_segment;
 
+  //-------------------------------------------------------------------------------
+
+  //-------------------------------
+  //  DELAY - FILES - Setup
+  //-------------------------------
+  // int count = 0;
+  //----------------
 
   while (mRunning) {
 
@@ -753,37 +770,35 @@ void rtlsdrDriver::SyncSampling() {
 //-------------------------------------------------------------------------------------------------------------
 //  REPEAT - Modifies Spectrum Segments with the the PSD values of one of them
 //--------------------------------------------------------------------
+    for (unsigned int i = 0; i < ElectrosenseContext::getInstance()->getAvgFactor(); i++) {
+      iq_vector.clear();
+      for (unsigned int j = 0; j < current_fft_size * 2; j = j + 2) {
+        iq_vector.push_back(std::complex<float>(
+          iq_buf[j + i * (current_fft_size - ElectrosenseContext::getInstance()->getSoverlap()) * 2],
+          iq_buf[j + 1 + i * (current_fft_size - ElectrosenseContext::getInstance()->getSoverlap()) * 2]));
+      }
 
-    // for (unsigned int i = 0; i < ElectrosenseContext::getInstance()->getAvgFactor(); i++) {
-    //   iq_vector.clear();
-    //   for (unsigned int j = 0; j < current_fft_size * 2; j = j + 2) {
-    //     iq_vector.push_back(std::complex<float>(
-    //       iq_buf[j + i * (current_fft_size - ElectrosenseContext::getInstance()->getSoverlap()) * 2],
-    //       iq_buf[j + 1 + i * (current_fft_size - ElectrosenseContext::getInstance()->getSoverlap()) * 2]));
-    //   }
+      //-- Indicates the frequency segment affected by the attack
+      if (center_freq >= 400000000 && center_freq <= 480000000) {
 
-    //   //-- Indicates the frequency segment affected by the attack
-    //   if (center_freq >= 400000000 && center_freq <= 480000000) {
+        //-- If the vector with the PSD values already exists, it copies its content to the segment to be sent
+        if (!repeat_source_segment.empty()) {
+          std::cout << "Copying into " << center_freq
+          << std::endl;
+          iq_vector.clear();
+          for(unsigned int i = 0; i < repeat_source_segment.size(); i++) {
+            iq_vector.push_back(repeat_source_segment[i]);
+          }
+        }
 
-    //     //-- If the vector with the PSD values already exists, it copies its content to the segment to be sent
-    //     if (!repeat_source_segment.empty()) {
-    //       std::cout << "Copying into " << center_freq
-    //       << std::endl;
-    //       iq_vector.clear();
-    //       for(unsigned int i = 0; i < repeat_source_segment.size(); i++) {
-    //         iq_vector.push_back(repeat_source_segment[i]);
-    //       }
-    //     }
-
-    //     //-- If the vector is empty it creates it and saves the PSD values of the selected frequency segment
-    //     else {
-    //       std::cout << "Creating source_segment" << std::endl;
-    //       for(unsigned int i = 0; i < iq_vector.size(); i++) {
-    //         repeat_source_segment.push_back(iq_vector[i]);
-    //       }
-    //     }
-    //  }
-
+        //-- If the vector is empty it creates it and saves the PSD values of the selected frequency segment
+        else {
+          std::cout << "Creating source_segment" << std::endl;
+          for(unsigned int i = 0; i < iq_vector.size(); i++) {
+            repeat_source_segment.push_back(iq_vector[i]);
+          }
+        }
+     }
 
 //----------------------------------------------------------------------------------------------------------
 
@@ -948,202 +963,214 @@ void rtlsdrDriver::SyncSampling() {
 //-------------------------------------------------------------------------------------------------------
 
 //--------------------------------------------------------------------------------------------------
-// FREEZE - Modifies the PSD values of each Spectrum Segment with a previous version of each Segment
+// FREEZE
 //--------------------------------------------------------------------------------------------------
 
-    for (unsigned int i = 0; i < ElectrosenseContext::getInstance()->getAvgFactor(); i++) {
-      iq_vector.clear();
-      for (unsigned int j = 0; j < current_fft_size * 2; j = j + 2) {
-        iq_vector.push_back(std::complex<float>(
-          iq_buf[j + i * (current_fft_size - ElectrosenseContext::getInstance()->getSoverlap()) * 2],
-          iq_buf[j + 1 + i * (current_fft_size - ElectrosenseContext::getInstance()->getSoverlap()) * 2]));
-      }
-      std::string data;
-      std::complex<float> f;
-      std::string filename;
-      //-- If the current frequency belongs to the range defined by the attack:
-      if ((center_freq >= 200000000) && (center_freq <= 360000000)){
-        //-- Creates the attack folder if it does not exist
-        std::string root_folder_name ="/root/freeze/";
-        mkdir(root_folder_name.c_str(), 0777);
-        //-- Generates the name of the files (to save PSD values)  according to the selected frequencies and a counter
-        count = 0;
-        std::string filename ="/root/freeze/"+ std::to_string(center_freq)+"_"+std::to_string(count)+".txt";
-        std::ifstream file (filename);
-        bool exist = file.good();
-        while (exist){
-          count = count + 1;
-          filename ="/root/freeze/"+ std::to_string(center_freq)+"_"+std::to_string(count)+".txt";
-          std::ifstream file (filename);
-          exist = file.good();
-        }
-	std::ifstream fileX (filename);
-	//std::cout <<"+File :" <<filename << std::endl;
-	//-- If the file with the previous name does not exist:
-	if (!fileX.good() && count < 5) {
-          //std::cout <<"Create new file"<< std::endl;
-          //-- Creates the file and saves the PSD values of the segment
-          std::ofstream file1 (filename);
-          for(unsigned int i = 0; i < iq_vector.size(); i++) {
-            file1 << iq_vector[i] << std::endl;
-          }
-          file1.close();
-          //std::cout <<"+Create new file :" <<filename << std::endl;
-	}
-	//-- If the file already exists the content is moved to Iq-Vector (segment sent to the back-end)
-	else {
-	  //std::cout <<"File exists"<< std::endl;
-	  std::ifstream file2 ("/root/freeze/"+ std::to_string(center_freq)+"_0.txt");
-          iq_vector.clear();
-          while (!file2.eof()) {
-            file2 >> data;
-            std::istringstream is(data);
-            is >> f;
-            iq_vector.push_back(f);
-          }
-          file2.close();
-        }
-      }
+    // for (unsigned int i = 0; i < ElectrosenseContext::getInstance()->getAvgFactor(); i++) {
+    //   iq_vector.clear();
+    //   for (unsigned int j = 0; j < current_fft_size * 2; j = j + 2) {
+    //     iq_vector.push_back(std::complex<float>(
+    //       iq_buf[j + i * (current_fft_size - ElectrosenseContext::getInstance()->getSoverlap()) * 2],
+    //       iq_buf[j + 1 + i * (current_fft_size - ElectrosenseContext::getInstance()->getSoverlap()) * 2]));
+    //   }
+
+    //   //-- Indicates the frequency segment affected by the attack
+    //   if(center_freq > 80000000 && center_freq < 85000000){
+    //     //-- Create the source array on the first iteration
+    //     if (!freeze){
+    //       if (i == ElectrosenseContext::getInstance()->getAvgFactor() -1){
+    //         std::cout << "creating source for " << center_freq << std::endl;
+    //         freeze_source_segment.push_back(iq_vector);
+    //         affected_frequencies++;
+    //       }
+    //     }else{
+    //       std::cout << "Copying " << current_frequency << "v" << i << " into " << center_freq << std::endl;
+    //       iq_vector.clear();
+    //       for(unsigned int i = 0; i < freeze_source_segment[current_frequency].size(); i++) {
+    //         iq_vector.push_back(freeze_source_segment[current_frequency][i]);
+    //       }
+    //       if (i == ElectrosenseContext::getInstance()->getAvgFactor() -1) current_frequency++;
+    //     }
+    //   }
+
+    //   if (!freeze  && center_freq > 85000000) {
+    //     freeze = true;
+    //     std::cout << "Affected freq: " << affected_frequencies << std::endl;
+    //   }
+
+    //   if (current_frequency == affected_frequencies) current_frequency = 0;
 
 //----------------------------------------------------------------------------------------------------------
 
 
 //-------------------------------------------------------------------------------------------------------------
-// DELAY -
+// DELAY
 //-------------------------------------------------------------------
-/*
+    // for (unsigned int i = 0; i < ElectrosenseContext::getInstance()->getAvgFactor(); i++) {
+    //   iq_vector.clear();
+    //   for (unsigned int j = 0; j < current_fft_size * 2; j = j + 2) {
+    //     iq_vector.push_back(std::complex<float>(
+    //       iq_buf[j + i * (current_fft_size - ElectrosenseContext::getInstance()->getSoverlap()) * 2],
+    //       iq_buf[j + 1 + i * (current_fft_size - ElectrosenseContext::getInstance()->getSoverlap()) * 2]));
+    //   }
 
-    for (unsigned int i = 0; i < ElectrosenseContext::getInstance()->getAvgFactor(); i++) {
+    //   //-- Indicates the frequency segment affected by the attack
+    //   if(center_freq > 80000000 && center_freq < 90000000){
+    //     //-- Initiate temporary variables
+    //     std::vector<std::complex<float>> tmp_iq_vector;
+    //     //-- Init phase: create 3d array with frequencies x delay x values
+    //     if (init && i == ElectrosenseContext::getInstance()->getAvgFactor() -1){
+    //       std::cout << "init phase" << std::endl;
+    //       std::vector<std::vector<std::complex<float>>> tmp_vector(delay);
+    //       tmp_vector.push_back(iq_vector);
+    //       delay_source_segment.push_back(tmp_vector);
+    //       affected_frequencies++;
+    //     }
+    //     //-- Fill the source array with the current data
+    //     else if (!init && i == ElectrosenseContext::getInstance()->getAvgFactor() -1){
+    //       //-- If the array is full, save the previous data to a temporary variable and overwrite it with the new values
+    //       if (current_iteration == delay){
+    //         tmp_iq_vector = delay_source_segment[current_frequency][current_iteration];
+    //         delay_source_segment[current_frequency][current_iteration].clear();
+    //         std::cout << "Full! Removed iteration " << current_iteration << "from the following freq: " << current_frequency << std::endl;
+    //       }
+    //       std::cout << "Creating source for " << center_freq << " which is the " << current_frequency+1 << ". frequency. Current iteration: " << current_iteration << std::endl;
+    //       std::cout << "Current size delay_source_segment[current_frequency][current_iteration]: " << delay_source_segment[current_frequency][current_iteration].size() << std::endl;
+    //       std::cout << "Current size delay_source_segment[current_frequency]: " << delay_source_segment[current_frequency].size() << std::endl;
+    //       std::cout << "Current size delay_source_segment: " << delay_source_segment.size() << std::endl;
 
-      iq_vector.clear();
-      for (unsigned int j = 0; j < current_fft_size * 2; j = j + 2) {
-        iq_vector.push_back(std::complex<float>(
-          iq_buf[j + i * (current_fft_size - ElectrosenseContext::getInstance()->getSoverlap()) * 2],
-          iq_buf[j + 1 + i * (current_fft_size - ElectrosenseContext::getInstance()->getSoverlap()) * 2]));
-      }
+          
+    //       for(unsigned int i = 0; i < iq_vector.size(); i++) {
+    //         delay_source_segment[current_frequency][current_iteration].push_back(iq_vector[i]);
+    //       }
+    //       current_frequency++;
+    //     }
+    //     if (!init && current_iteration == delay){
+    //       std::cout << "Overwriting frequency" << current_frequency << std::endl;
+    //       iq_vector.clear();
+    //       for(unsigned int i = 0; i < tmp_iq_vector.size(); i++) {
+    //         iq_vector.push_back(tmp_iq_vector[i]);
+    //       }
+    //     }
+    //   }
+
+    //   //-- when init is done for all frequencies, change to "normal" mode
+    //   if (init && center_freq > 90000000){
+    //     init = false;
+    //     current_iteration++;
+    //   }
+
+    //   //-- when all frequencies are saved and/or modified go to next iteration
+    //   if (current_frequency == affected_frequencies) {
+    //     current_frequency = 0;
+    //     current_iteration++;
+    //   }
+
+    //   //-- when the defined delay is reached, start again
+    //   if (current_iteration == delay) {
+    //     current_iteration = 0;
+    //     current_frequency = 0;
+    //   }
+
+         
+//--------------------------------------------------------------------------------------------------------
 
 
-      if(center_freq > 80000000 && center_freq < 81000000){
-	//Create folders if they do not exists
-        std::string root_folder_name ="/root/delay/";
-        mkdir(root_folder_name.c_str(), 0777);
-        std::string segment_folder_name ="/root/delay/"+std::to_string(center_freq);
-	const char* dirname = segment_folder_name.c_str();
-        mkdir(dirname, 0777);
 
-	//Generate the name of the files saving the PSD of each RF Segment
-	count = 0;
-        std::string filename ="/root/delay/"+std::to_string(center_freq)+"/"+std::to_string(current_time.tv_sec)+"_"+std::to_string(count)+".txt";
-        std::ifstream f (filename);
-        bool exist = f.good();
+//-------------------------------------------------------------------------------------------------------------
+// DELAY - FILES
+//-------------------------------------------------------------------
+  //   for (unsigned int i = 0; i < ElectrosenseContext::getInstance()->getAvgFactor(); i++) {
+  //     iq_vector.clear();
+  //     for (unsigned int j = 0; j < current_fft_size * 2; j = j + 2) {
+  //       iq_vector.push_back(std::complex<float>(
+  //         iq_buf[j + i * (current_fft_size - ElectrosenseContext::getInstance()->getSoverlap()) * 2],
+  //         iq_buf[j + 1 + i * (current_fft_size - ElectrosenseContext::getInstance()->getSoverlap()) * 2]));
+  //     }
+  //     //-- If the current segment belongs to the selected by the attack
+  //     if(center_freq > 80000000 && center_freq < 81000000){
+	// //-- Creates the attack folders if they do not exists
+  //       std::string root_folder_name ="/root/delay/";
+  //       mkdir(root_folder_name.c_str(), 0777);
+  //       std::string segment_folder_name ="/root/delay/"+std::to_string(center_freq);
+	// const char* dirname = segment_folder_name.c_str();
+  //       mkdir(dirname, 0777);
+	// //-- Generates the name of the files saving the PSD of each RF Segment
+	// count = 0;
+  //       std::string filename ="/root/delay/"+std::to_string(center_freq)+"/"+std::to_string(current_time.tv_sec)+"_"+std::to_string(count)+".txt";
+  //       std::ifstream f (filename);
+  //       bool exist = f.good();
+	// //-- Creates the needed files
+  //       while (exist){
+  //         count = count + 1;
+  //         filename ="/root/delay/"+std::to_string(center_freq)+"/"+std::to_string(current_time.tv_sec)+"_"+std::to_string(count)+".txt";
+  //         std::ifstream f (filename);
+	//   exist = f.good();
+	// }
+  //       //-- Saves the PSD values of the segment
+	// std::ofstream file (filename);
+  //       for(unsigned int i = 0; i < iq_vector.size(); i++) {
+  //         file << iq_vector[i] << std::endl;
+  //       }
+  //       file.close();
+	// //std::cout <<"+Create new file :" <<filename << std::endl;
+ 	// //-- Copies the PSD values of the oldest file to the iq_vector and delet
+  //       int time = current_time.tv_sec - 0000000100;
+  //       std::string str;
+	// std::vector<std::string> files;
+	// int num;
+  //       DIR *dr;
+  //       struct dirent *en;
+  //       dr = opendir(segment_folder_name.c_str()); //open all directory
+	// if (dr) {
+  //         while ((en = readdir(dr)) != NULL) {
+  //           str = en->d_name;
+	//     //std::cout<<str<<" ";
+	//     if (str != "." && str != ".."){
+	// 	files.push_back(str);
+	//     }
+	//   }
+	//   std::sort(files.begin(), files.end());
+	//   for (const std::string &s_aux:files){
+	//       str = s_aux;
+	//       //std::cout << "str: " << str << std::endl;
+	//       str = str.substr(0,10);
+  //             std::stringstream ss;
+	//       ss << str;
+  //             ss >> num;
+	//       if ((num < time)){
+	//         filename = "/root/delay/"+std::to_string(center_freq)+"/"+s_aux;
+	//         //std::cout <<"=Copy from Old file to vector :" <<filename << std::endl;
+	//         std::ifstream file (filename);
+	//         //std::cout<<filename<<std::endl;
+  //               if (file.good()) {
+  //                 iq_vector.clear();
+  //                 while (!file.eof()) {
+  //                   std::complex<float> f_f;
+	//             std::string data;
+	// 	    file >> data;
+  //                   std::istringstream is(data);
+  //                   is >> f_f;
+  //                   iq_vector.push_back(f_f);
+  //                 }
+  //                 file.close();
+	// 	  //std::cout << "Delete: " << filename <<std::endl;
+	//           remove(filename.c_str());
+	// 	  break;
+  //               }
+	//       }
+  //         }
+  //         closedir(dr); //close all directory
+  //       }
+  //     }
 
-        while (exist){
-          count = count + 1;
-          filename ="/root/delay/"+std::to_string(center_freq)+"/"+std::to_string(current_time.tv_sec)+"_"+std::to_string(count)+".txt";
-          std::ifstream f (filename);
-	  exist = f.good();
-	}
-
-        //Creates the file and saves the PSD values of the segment
-	std::ofstream file (filename);
-        for(unsigned int i = 0; i < iq_vector.size(); i++) {
-          file << iq_vector[i] << std::endl;
-        }
-        file.close();
-	//std::cout <<"+Create new file :" <<filename << std::endl;
-
-
- 	//Copies the PSD values of the oldest file in the iq_vector and delets the files
-        int time = current_time.tv_sec - 0000000100;
-        std::string str;
-	std::vector<std::string> files;
-	int num;
-        DIR *dr;
-        struct dirent *en;
-
-        dr = opendir(segment_folder_name.c_str()); //open all directory
-	if (dr) {
-          while ((en = readdir(dr)) != NULL) {
-            str = en->d_name;
-	    //std::cout<<str<<" ";
-	    if (str != "." && str != ".."){
-		files.push_back(str);
-	    }
-	  }
-	  std::sort(files.begin(), files.end());
-	  for (const std::string &s_aux:files){
-	      str = s_aux;
-	      //std::cout << "str: " << str << std::endl;
-	      str = str.substr(0,10);
-              std::stringstream ss;
-	      ss << str;
-              ss >> num;
-	      //std::string var (en->d_name);
-       	      //std::cout<<str<<" ";
-              //std::cout<<num<<" "<<std::endl;
-	      //std::cout <<"file Name: " << var << " File time: " << num << " time to delete: "<< time <<std::endl;
-	      if ((num < time)){
-	        //std::cout << "Old File found: " << en->d_name << std::endl;
-	        filename = "/root/delay/"+std::to_string(center_freq)+"/"+s_aux;
-	        //std::cout <<"=Copy from Old file to vector :" <<filename << std::endl;
-	        std::ifstream file (filename);
-	        //std::cout<<filename<<std::endl;
-                if (file.good()) {
-                  iq_vector.clear();
-                  while (!file.eof()) {
-                    std::complex<float> f_f;
-	            std::string data;
-		    file >> data;
-                    std::istringstream is(data);
-                    is >> f_f;
-                    iq_vector.push_back(f_f);
-                  }
-                  file.close();
-		  //std::cout << "Delete: " << filename <<std::endl;
-	          remove(filename.c_str());
-		  break;
-                }
-	      }
-          }
-          closedir(dr); //close all directory
-        }
-      }
-
-*/
+         
 //--------------------------------------------------------------------------------------------------------
 
 //--------------------------------------------------------------------------------------------------------------
 // HOP ?
 //------------------------------------
-/*
 
-    for (unsigned int i = 0; i < ElectrosenseContext::getInstance()->getAvgFactor(); i++) {
-      iq_vector.clear();
-      if((center_freq >= 300000000) && (center_freq <= 301000000)){
-        for (unsigned int j = 0; j < current_fft_size * 2; j = j + 2) {
-	  double randomValue = dist(urandom);
-          //double randomValue = dist(mt);
- 	  if (randomValue > 5){
-            iq_vector.push_back(std::complex<float>(
-               iq_buf[j + i * (current_fft_size - ElectrosenseContext::getInstance()->getSoverlap()) * 2] + randomValue,
-               iq_buf[j + 1 + i * (current_fft_size - ElectrosenseContext::getInstance()->getSoverlap()) * 2] + randomValue));
-          }
-          else {
-            iq_vector.push_back(std::complex<float>(
-               iq_buf[j + i * (current_fft_size - ElectrosenseContext::getInstance()->getSoverlap()) * 2],
-               iq_buf[j + 1 + i * (current_fft_size - ElectrosenseContext::getInstance()->getSoverlap()) * 2]));
-	  }
-        }
-      }
-      else{
-        for (unsigned int j = 0; j < current_fft_size * 2; j = j + 2) {
-	  iq_vector.push_back(std::complex<float>(
-             iq_buf[j + i * (current_fft_size - ElectrosenseContext::getInstance()->getSoverlap()) * 2],
-             iq_buf[j + 1 + i * (current_fft_size - ElectrosenseContext::getInstance()->getSoverlap()) * 2]));
-        }
-      }
-
-*/
 //---------------------------------------------------------------------------------------------------------
 
 
