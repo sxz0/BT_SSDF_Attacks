@@ -553,25 +553,35 @@ void rtlsdrDriver::SyncSampling() {
   //----------------------------------------------------------------------------------------------------------
   // REPEAT - Setup
   //---------------------
-  std::vector<std::complex<float>> repeat_source_segment;
+  // std::vector<std::complex<float>> repeat_source_segment;
 
   //----------------------------------------------------------------------------------------------------------
   // MIMIC - Setup
   //---------------------
-  // std::vector<std::complex<float>> mimic_source_segment;
+  // int current_frequency = 0;
+  // std::vector<std::vector<std::complex<float>>>  mimic_source_segment;
 
   //----------------------------------------------------------------------------------------------------------
   // CONFUSION/EXCHANGE/DISORDER - Setup
   //---------------------
-  // std::vector<std::complex<float>> confusion_source_segment_1;
-  // std::vector<std::complex<float>> confusion_source_segment_2;
+  // int current_frequency = 0;
+  // std::vector<std::vector<std::complex<float>>> confusion_source_segment_1;
+  // std::vector<std::vector<std::complex<float>>> confusion_source_segment_2;
 
   //----------------------------------------------------------------------------------------------------------
-  // NOISE / SPOOF  - Setup
+  // NOISE - Setup
   //---------------------
-
   //  std::uniform_real_distribution<double> dist(0, 10);
   //  std::random_device urandom("/dev/urandom");
+  //-------------------------------------------------------------------------------
+
+  //----------------------------------------------------------------------------------------------------------
+  // SPOOF  - Setup
+  //---------------------
+  // std::uniform_real_distribution<double> dist(0, 20);
+  // std::random_device urandom("/dev/urandom");
+  // int current_frequency = 0;
+  // std::vector<std::vector<std::complex<float>>>  spoof_source_segment;
 
   //-------------------------------------------------------------------------------
 
@@ -579,7 +589,6 @@ void rtlsdrDriver::SyncSampling() {
   // FREEZE - Setup
   //---------------------
   // std::vector<std::vector<std::complex<float>>> freeze_source_segment;
-  // int affected_frequencies = 0;
   // int current_frequency = 0;
   // bool freeze = false;
 
@@ -587,13 +596,13 @@ void rtlsdrDriver::SyncSampling() {
 
   //----------------------------------------------------------------------------------------------------------
   // DELAY - Setup
-  // //---------------------
-  // int affected_frequencies = 0;
-  // int current_frequency = 0;
-  // int delay = 8;
-  // int current_iteration = 0;
-  // bool init = true;
-  // std::vector<std::vector<std::vector<std::complex<float>>>> delay_source_segment;
+  //---------------------
+  int affected_frequencies = 0;
+  int current_frequency = 0;
+  int delay = 8;
+  int current_iteration = 0;
+  bool init = true;
+  std::vector<std::vector<std::vector<std::complex<float>>>> delay_source_segment;
 
   //-------------------------------------------------------------------------------
 
@@ -740,10 +749,9 @@ void rtlsdrDriver::SyncSampling() {
     std::vector<std::complex<float>> iq_vector;
 
 
-//----------------------------------
-//---------------------
+
+//-------------------------------------------------------------------------------------------------------------
 // NO ATTACK
-//---------------------
 //-----------------------------------
 
   //   for (unsigned int i = 0; i < ElectrosenseContext::getInstance()->getAvgFactor(); i++) {
@@ -770,35 +778,35 @@ void rtlsdrDriver::SyncSampling() {
 //-------------------------------------------------------------------------------------------------------------
 //  REPEAT - Modifies Spectrum Segments with the the PSD values of one of them
 //--------------------------------------------------------------------
-    for (unsigned int i = 0; i < ElectrosenseContext::getInstance()->getAvgFactor(); i++) {
-      iq_vector.clear();
-      for (unsigned int j = 0; j < current_fft_size * 2; j = j + 2) {
-        iq_vector.push_back(std::complex<float>(
-          iq_buf[j + i * (current_fft_size - ElectrosenseContext::getInstance()->getSoverlap()) * 2],
-          iq_buf[j + 1 + i * (current_fft_size - ElectrosenseContext::getInstance()->getSoverlap()) * 2]));
-      }
+    // for (unsigned int i = 0; i < ElectrosenseContext::getInstance()->getAvgFactor(); i++) {
+    //   iq_vector.clear();
+    //   for (unsigned int j = 0; j < current_fft_size * 2; j = j + 2) {
+    //     iq_vector.push_back(std::complex<float>(
+    //       iq_buf[j + i * (current_fft_size - ElectrosenseContext::getInstance()->getSoverlap()) * 2],
+    //       iq_buf[j + 1 + i * (current_fft_size - ElectrosenseContext::getInstance()->getSoverlap()) * 2]));
+    //   }
 
-      //-- Indicates the frequency segment affected by the attack
-      if (center_freq >= 400000000 && center_freq <= 480000000) {
+    //   //-- Indicates the frequency segment affected by the attack
+    //   if (center_freq >= 400000000 && center_freq <= 480000000) {
 
-        //-- If the vector with the PSD values already exists, it copies its content to the segment to be sent
-        if (!repeat_source_segment.empty()) {
-          std::cout << "Copying into " << center_freq
-          << std::endl;
-          iq_vector.clear();
-          for(unsigned int i = 0; i < repeat_source_segment.size(); i++) {
-            iq_vector.push_back(repeat_source_segment[i]);
-          }
-        }
+    //     //-- If the vector with the PSD values already exists, it copies its content to the segment to be sent
+    //     if (!repeat_source_segment.empty()) {
+    //       std::cout << "Copying into " << center_freq
+    //       << std::endl;
+    //       iq_vector.clear();
+    //       for(unsigned int i = 0; i < repeat_source_segment.size(); i++) {
+    //         iq_vector.push_back(repeat_source_segment[i]);
+    //       }
+    //     }
 
-        //-- If the vector is empty it creates it and saves the PSD values of the selected frequency segment
-        else {
-          std::cout << "Creating source_segment" << std::endl;
-          for(unsigned int i = 0; i < iq_vector.size(); i++) {
-            repeat_source_segment.push_back(iq_vector[i]);
-          }
-        }
-     }
+    //     //-- If the vector is empty it creates it and saves the PSD values of the selected frequency segment
+    //     else {
+    //       std::cout << "Creating source_segment" << std::endl;
+    //       for(unsigned int i = 0; i < iq_vector.size(); i++) {
+    //         repeat_source_segment.push_back(iq_vector[i]);
+    //       }
+    //     }
+    //  }
 
 //----------------------------------------------------------------------------------------------------------
 
@@ -817,21 +825,26 @@ void rtlsdrDriver::SyncSampling() {
     //   }
 
     //   //--The segment that needs to be copied
-    //   if (center_freq > 90000000 && center_freq < 91000000 ) {
-    //       std::cout << "Copying source segment" << std::endl;
-    //       mimic_source_segment.clear();
-    //       for(unsigned int i = 0; i < iq_vector.size(); i++) {
-    //         mimic_source_segment.push_back(iq_vector[i]);
-    //       }
+    //   if (center_freq > 380000000 && center_freq < 400000000 ) {
+    //     if (i == ElectrosenseContext::getInstance()->getAvgFactor() -1){
+    //       std::cout << "Copying source segment. Currently " << mimic_source_segment.size() << " frequencies copied" << std::endl;
+    //       mimic_source_segment.push_back(iq_vector);
+    //     }
     //   }
     //   //--The segment the copied PSD values are pasted into
-    //   else if (center_freq > 300000000 && center_freq < 301000000) {
-    //       std::cout << "Copying into " << center_freq
-    //       << std::endl;
+    //   else if (center_freq > 420000000 && center_freq < 440000000) {
+    //       std::cout << "Copying number " << current_frequency << " into " << center_freq << std::endl;
     //       iq_vector.clear();
-    //       for(unsigned int i = 0; i < mimic_source_segment.size(); i++) {
-    //         iq_vector.push_back(mimic_source_segment[i]);
+    //       for(unsigned int i = 0; i < mimic_source_segment[current_frequency].size(); i++) {
+    //         iq_vector.push_back(mimic_source_segment[current_frequency][i]);
     //       }
+    //       if (i == ElectrosenseContext::getInstance()->getAvgFactor() -1) current_frequency++;
+    //   }
+
+
+    //   if (current_frequency != 0 && center_freq > 440000000) {
+    //     mimic_source_segment.clear();
+    //     current_frequency = 0;
     //   }
 
 
@@ -852,37 +865,53 @@ void rtlsdrDriver::SyncSampling() {
     //   }
 
     //   //-- The first frequency segment that needs to be exchanged
-    //   if (center_freq > 90000000 && center_freq < 91000000){
+    //   if (center_freq > 380000000 && center_freq < 400000000){
     //     //-- Save the sensed PSD values in temporary variable
-    //     std::cout << "Save first segment" << std::endl;
-    //     confusion_source_segment_1.clear();
-    //     for(unsigned int i = 0; i < iq_vector.size(); i++) {
-    //         confusion_source_segment_1.push_back(iq_vector[i]);
+    //     if (i == 0){
+    //       confusion_source_segment_1.push_back(iq_vector);
+    //       std::cout << "Copying first segment. Currently " << confusion_source_segment_1.size() << " frequencies copied" << std::endl;
     //     }
     //     //-- overwrite the sensed PSD values with the second segment if it already exists
-    //      if (!confusion_source_segment_2.empty()) {
+    //     if (!confusion_source_segment_2.empty()) {
     //       iq_vector.clear();
-    //       std::cout << "Copy source segment 2 into segment 1 " << std::endl;
-    //       for(unsigned int i = 0; i < confusion_source_segment_2.size(); i++) {
-    //         iq_buf.push_back(confusion_source_segment_2[i]);
+    //       for(unsigned int i = 0; i < confusion_source_segment_2[current_frequency].size(); i++) {
+    //         iq_vector.push_back(confusion_source_segment_2[current_frequency][i]);
+    //       }
+    //       if (i == ElectrosenseContext::getInstance()->getAvgFactor() - 1) {
+    //         std::cout << "Copying frequency number " << current_frequency << " from segment 2 into segment 1" << std::endl;
+    //         current_frequency++;
     //       }
     //     }
     //   }
 
-    //   //-- The second frequency segment that needs to be exchanged
-    //   if (center_freq > 300000000 && center_freq < 301000000) {
-    //     //-- Save the sensed PSD values in temporary variable
-    //     std::cout << "Save second segment" << std::endl;
+    //   if (current_frequency != 0 && center_freq > 400000000 && center_freq < 420000000) {
     //     confusion_source_segment_2.clear();
-    //     for(unsigned int i = 0; i < iq_vector.size(); i++) {
-    //         confusion_source_segment_2.push_back(iq_vector[i]);
+    //     current_frequency = 0;
+    //     std::cout << "First segment done!" << std::endl;
+    //   }
+
+    //   //-- The second frequency segment that needs to be exchanged
+    //   if (center_freq > 420000000 && center_freq < 440000000) {
+    //     //-- Save the sensed PSD values in temporary variable
+    //     if (i == 0){
+    //       confusion_source_segment_2.push_back(iq_vector);
+    //       std::cout << "Copying second segment. Currently " << confusion_source_segment_2.size() << " frequencies copied" << std::endl;
     //     }
-    //     //-- Overwrite the sensed PSD values with the first segment
+    //     //-- overwrite the sensed PSD values with the first segment
     //     iq_vector.clear();
-    //     std::cout << "Copy source segment 1 into segment 2 " << std::endl;
-    //     for(unsigned int i = 0; i < confusion_source_segment_2.size(); i++) {
-    //       iq_buf.push_back(confusion_source_segment_2[i]);
+    //     for(unsigned int i = 0; i < confusion_source_segment_1[current_frequency].size(); i++) {
+    //       iq_vector.push_back(confusion_source_segment_1[current_frequency][i]);
     //     }
+    //     if (i == ElectrosenseContext::getInstance()->getAvgFactor() - 1) {
+    //       std::cout << "Copying frequency number " << current_frequency << " from segment 1 into segment 2" << std::endl;
+    //       current_frequency++;
+    //     }
+    //   }
+
+    //   if (current_frequency != 0 && center_freq > 440000000) {
+    //     confusion_source_segment_1.clear();
+    //     current_frequency = 0;
+    //     std::cout << "Second segment done!" << std::endl;
     //   }
 
 //---------------------------------------------------------------------------------------------------------------
@@ -943,23 +972,31 @@ void rtlsdrDriver::SyncSampling() {
     //   }
 
     //   //--The segment that needs to be copied
-    //   if (center_freq > 90000000 && center_freq < 91000000 ) {
-    //       std::cout << "Copying source segment" << std::endl;
-    //       mimic_source_segment.clear();
-    //       for(unsigned int i = 0; i < iq_vector.size(); i++) {
-    //         mimic_source_segment.push_back(iq_vector[i]);
-    //       }
+    //   if (center_freq > 380000000 && center_freq < 400000000 ) {
+    //     if (i == ElectrosenseContext::getInstance()->getAvgFactor() -1){
+    //       std::cout << "Copying source segment. Currently " << spoof_source_segment.size() << " frequencies copied" << std::endl;
+    //       spoof_source_segment.push_back(iq_vector);
+    //     }
     //   }
     //   //--The segment the copied PSD values are pasted into
-    //   else if (center_freq > 300000000 && center_freq < 301000000) {
-    //       std::cout << "Copying into " << center_freq
-    //       << std::endl;
+    //   else if (center_freq > 420000000 && center_freq < 440000000) {
     //       iq_vector.clear();
     //       std::complex<float> randomValue = dist(urandom);
-    //       for(unsigned int i = 0; i < mimic_source_segment.size(); i++) {
-    //         iq_vector.push_back(mimic_source_segment[i]+randomValue);
+    //       for(unsigned int i = 0; i < spoof_source_segment[current_frequency].size(); i++) {
+    //         iq_vector.push_back(spoof_source_segment[current_frequency][i]+randomValue);
+    //       }
+    //       if (i == ElectrosenseContext::getInstance()->getAvgFactor() -1) {
+    //         std::cout << "Copying number " << current_frequency << " into " << center_freq << " and adding random noise "<<  std::endl;
+    //         current_frequency++;
     //       }
     //   }
+
+
+    //   if (center_freq > 440000000) {
+    //     spoof_source_segment.clear();
+    //     current_frequency = 0;
+    //   }
+
 //-------------------------------------------------------------------------------------------------------
 
 //--------------------------------------------------------------------------------------------------
@@ -975,33 +1012,105 @@ void rtlsdrDriver::SyncSampling() {
     //   }
 
     //   //-- Indicates the frequency segment affected by the attack
-    //   if(center_freq > 80000000 && center_freq < 85000000){
+    //   if(center_freq > 390000000 && center_freq < 400000000){
     //     //-- Create the source array on the first iteration
     //     if (!freeze){
     //       if (i == ElectrosenseContext::getInstance()->getAvgFactor() -1){
     //         std::cout << "creating source for " << center_freq << std::endl;
     //         freeze_source_segment.push_back(iq_vector);
-    //         affected_frequencies++;
     //       }
     //     }else{
-    //       std::cout << "Copying " << current_frequency << "v" << i << " into " << center_freq << std::endl;
     //       iq_vector.clear();
     //       for(unsigned int i = 0; i < freeze_source_segment[current_frequency].size(); i++) {
     //         iq_vector.push_back(freeze_source_segment[current_frequency][i]);
     //       }
-    //       if (i == ElectrosenseContext::getInstance()->getAvgFactor() -1) current_frequency++;
+    //       if (i == ElectrosenseContext::getInstance()->getAvgFactor() -1) {
+    //         std::cout << "Froze " << center_freq << "(" << current_frequency << ")" << std::endl;
+    //         current_frequency++;
+    //       }
     //     }
     //   }
 
-    //   if (!freeze  && center_freq > 85000000) {
+    //   if (!freeze  && center_freq > 400000000) {
     //     freeze = true;
-    //     std::cout << "Affected freq: " << affected_frequencies << std::endl;
     //   }
 
-    //   if (current_frequency == affected_frequencies) current_frequency = 0;
+    //   if (current_frequency != 0 && center_freq > 400000000) current_frequency = 0;
 
 //----------------------------------------------------------------------------------------------------------
 
+
+//-------------------------------------------------------------------------------------------------------------
+// DELAY
+//-------------------------------------------------------------------
+    for (unsigned int i = 0; i < ElectrosenseContext::getInstance()->getAvgFactor(); i++) {
+      iq_vector.clear();
+      for (unsigned int j = 0; j < current_fft_size * 2; j = j + 2) {
+        iq_vector.push_back(std::complex<float>(
+          iq_buf[j + i * (current_fft_size - ElectrosenseContext::getInstance()->getSoverlap()) * 2],
+          iq_buf[j + 1 + i * (current_fft_size - ElectrosenseContext::getInstance()->getSoverlap()) * 2]));
+      }
+
+      //-- Indicates the frequency segment affected by the attack
+      if(center_freq > 390000000 && center_freq < 400000000){
+        //-- Initiate temporary variables
+        std::vector<std::complex<float>> tmp_iq_vector;
+        //-- Init phase: create 3d array with frequencies x delay x values
+        if (init && i == ElectrosenseContext::getInstance()->getAvgFactor() -1){
+          std::cout << "init phase" << std::endl;
+          std::vector<std::vector<std::complex<float>>> tmp_vector(delay);
+          tmp_vector.push_back(iq_vector);
+          delay_source_segment.push_back(tmp_vector);
+          affected_frequencies++;
+        }
+        //-- Fill the source array with the current data
+        else if (!init && i == ElectrosenseContext::getInstance()->getAvgFactor() -1){
+          //-- If the array is full, save the previous data to a temporary variable and overwrite it with the new values
+          if (current_iteration == delay){
+            tmp_iq_vector = delay_source_segment[current_frequency][current_iteration];
+            delay_source_segment[current_frequency][current_iteration].clear();
+            std::cout << "Full! Removed iteration " << current_iteration << "from the following freq: " << current_frequency << std::endl;
+          }
+          std::cout << "Creating source for " << center_freq << " which is the " << current_frequency+1 << ". frequency. Current iteration: " << current_iteration << std::endl;
+          std::cout << "Current size delay_source_segment[current_frequency][current_iteration]: " << delay_source_segment[current_frequency][current_iteration].size() << std::endl;
+          std::cout << "Current size delay_source_segment[current_frequency]: " << delay_source_segment[current_frequency].size() << std::endl;
+          std::cout << "Current size delay_source_segment: " << delay_source_segment.size() << std::endl;
+
+          
+          for(unsigned int i = 0; i < iq_vector.size(); i++) {
+            delay_source_segment[current_frequency][current_iteration].push_back(iq_vector[i]);
+          }
+          current_frequency++;
+        }
+        if (!init && current_iteration == delay){
+          std::cout << "Overwriting frequency" << current_frequency << std::endl;
+          iq_vector.clear();
+          for(unsigned int i = 0; i < tmp_iq_vector.size(); i++) {
+            iq_vector.push_back(tmp_iq_vector[i]);
+          }
+        }
+      }
+
+      //-- when init is done for all frequencies, change to "normal" mode
+      if (init && center_freq > 90000000){
+        init = false;
+        current_iteration++;
+      }
+
+      //-- when all frequencies are saved and/or modified go to next iteration
+      if (current_frequency == affected_frequencies) {
+        current_frequency = 0;
+        current_iteration++;
+      }
+
+      //-- when the defined delay is reached, start again
+      if (current_iteration == delay) {
+        current_iteration = 0;
+        current_frequency = 0;
+      }
+
+         
+//--------------------------------------------------------------------------------------------------------
 
 //-------------------------------------------------------------------------------------------------------------
 // DELAY
@@ -1014,67 +1123,10 @@ void rtlsdrDriver::SyncSampling() {
     //       iq_buf[j + 1 + i * (current_fft_size - ElectrosenseContext::getInstance()->getSoverlap()) * 2]));
     //   }
 
-    //   //-- Indicates the frequency segment affected by the attack
-    //   if(center_freq > 80000000 && center_freq < 90000000){
-    //     //-- Initiate temporary variables
-    //     std::vector<std::complex<float>> tmp_iq_vector;
-    //     //-- Init phase: create 3d array with frequencies x delay x values
-    //     if (init && i == ElectrosenseContext::getInstance()->getAvgFactor() -1){
-    //       std::cout << "init phase" << std::endl;
-    //       std::vector<std::vector<std::complex<float>>> tmp_vector(delay);
-    //       tmp_vector.push_back(iq_vector);
-    //       delay_source_segment.push_back(tmp_vector);
-    //       affected_frequencies++;
-    //     }
-    //     //-- Fill the source array with the current data
-    //     else if (!init && i == ElectrosenseContext::getInstance()->getAvgFactor() -1){
-    //       //-- If the array is full, save the previous data to a temporary variable and overwrite it with the new values
-    //       if (current_iteration == delay){
-    //         tmp_iq_vector = delay_source_segment[current_frequency][current_iteration];
-    //         delay_source_segment[current_frequency][current_iteration].clear();
-    //         std::cout << "Full! Removed iteration " << current_iteration << "from the following freq: " << current_frequency << std::endl;
-    //       }
-    //       std::cout << "Creating source for " << center_freq << " which is the " << current_frequency+1 << ". frequency. Current iteration: " << current_iteration << std::endl;
-    //       std::cout << "Current size delay_source_segment[current_frequency][current_iteration]: " << delay_source_segment[current_frequency][current_iteration].size() << std::endl;
-    //       std::cout << "Current size delay_source_segment[current_frequency]: " << delay_source_segment[current_frequency].size() << std::endl;
-    //       std::cout << "Current size delay_source_segment: " << delay_source_segment.size() << std::endl;
 
-          
-    //       for(unsigned int i = 0; i < iq_vector.size(); i++) {
-    //         delay_source_segment[current_frequency][current_iteration].push_back(iq_vector[i]);
-    //       }
-    //       current_frequency++;
-    //     }
-    //     if (!init && current_iteration == delay){
-    //       std::cout << "Overwriting frequency" << current_frequency << std::endl;
-    //       iq_vector.clear();
-    //       for(unsigned int i = 0; i < tmp_iq_vector.size(); i++) {
-    //         iq_vector.push_back(tmp_iq_vector[i]);
-    //       }
-    //     }
-    //   }
+    // if(center_freq > 390000000 && center_freq < 400000000){
 
-    //   //-- when init is done for all frequencies, change to "normal" mode
-    //   if (init && center_freq > 90000000){
-    //     init = false;
-    //     current_iteration++;
-    //   }
-
-    //   //-- when all frequencies are saved and/or modified go to next iteration
-    //   if (current_frequency == affected_frequencies) {
-    //     current_frequency = 0;
-    //     current_iteration++;
-    //   }
-
-    //   //-- when the defined delay is reached, start again
-    //   if (current_iteration == delay) {
-    //     current_iteration = 0;
-    //     current_frequency = 0;
-    //   }
-
-         
-//--------------------------------------------------------------------------------------------------------
-
+    // }
 
 
 //-------------------------------------------------------------------------------------------------------------
