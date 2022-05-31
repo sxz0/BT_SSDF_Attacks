@@ -21,6 +21,8 @@
  */
 
 #include "SequentialHopping.h"
+#include <chrono>
+#include <iostream>
 
 SequentialHopping::SequentialHopping() {
 
@@ -44,9 +46,14 @@ uint64_t SequentialHopping::nextHop() {
   uint64_t ret_freq = mFreqs.at(mIndex);
   mIndex++;
 
+  // std::chrono::time_point<std::chrono::high_resolution_clock> t1, t2;
+  // if (mIndex == 1) t2 = std::chrono::high_resolution_clock::now();
   if (mIndex >= mFreqs.size()){
     mIndex = 0;
     std::cout << "Hopped through all frequency bands, start again!"<< std::endl;
+    // t1 = std::chrono::high_resolution_clock::now();
+    // std::chrono::duration<double> elapsed = t2-t1;
+    // std::cout << "Elapsed time " << elapsed.count() << " seconds " << std::endl;
   }
     
 

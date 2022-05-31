@@ -599,11 +599,12 @@ void rtlsdrDriver::SyncSampling() {
   //---------------------
   int affected_frequencies = 0;
   int current_frequency = 0;
-  int delay = 8;
   int current_iteration = 0;
+  int delay = 6;
   bool init = true;
+  bool full = false;
   std::vector<std::vector<std::vector<std::complex<float>>>> delay_source_segment;
-
+  std::vector<std::complex<float>> tmp_iq_vector;
   //-------------------------------------------------------------------------------
 
   //-------------------------------
@@ -1052,82 +1053,94 @@ void rtlsdrDriver::SyncSampling() {
       }
 
       //-- Indicates the frequency segment affected by the attack
-      if(center_freq > 390000000 && center_freq < 400000000){
-        //-- Initiate temporary variables
-        std::vector<std::complex<float>> tmp_iq_vector;
+      if(center_freq > 380000000 && center_freq < 400000000){
         //-- Init phase: create 3d array with frequencies x delay x values
-        if (init && i == ElectrosenseContext::getInstance()->getAvgFactor() -1){
-          std::cout << "init phase" << std::endl;
+        if (init && i == 0){
+          std::cout << "Init array for frequency number " << affected_frequencies << std::endl;
           std::vector<std::vector<std::complex<float>>> tmp_vector(delay);
-          tmp_vector.push_back(iq_vector);
+          tmp_vector.insert(tmp_vector.begin(), iq_vector);
           delay_source_segment.push_back(tmp_vector);
           affected_frequencies++;
+          // //-- Print current delay_source_segment array for debugging
+          // for (unsigned int i = 0; i<delay_source_segment.size(); i++){
+          //   std::cout << "Elements at frequency "
+          //   << i << ": ";
+          //   for (unsigned int j = 0; j != delay_source_segment[i].size(); j++) {
+          //     std::cout << "Elements at iteration "
+          //     << j << ": ";
+          //     for (unsigned int k = 0; k != delay_source_segment[i][j].size(); k++) {
+          //       std::cout << delay_source_segment[i][j][k]<< ' ';
+          //       }
+          //   std::cout << std::endl;
+          //   }
+          // }
         }
         //-- Fill the source array with the current data
-        else if (!init && i == ElectrosenseContext::getInstance()->getAvgFactor() -1){
-          //-- If the array is full, save the previous data to a temporary variable and overwrite it with the new values
-          if (current_iteration == delay){
-            tmp_iq_vector = delay_source_segment[current_frequency][current_iteration];
+        if (!init && i == 0){
+          //-- If the array is full, save the previous data to a temporary variable
+          if (full){
+            std::cout << "Full! Remove old iteration " << current_iteration << " from the following freq: " << current_frequency << std::endl;
+            tmp_iq_vector.clear();
+            for(unsigned int i = 0; i < delay_source_segment[current_frequency][current_iteration].size(); i++) {
+              tmp_iq_vector.push_back(delay_source_segment[current_frequency][current_iteration][i]);
+            }
             delay_source_segment[current_frequency][current_iteration].clear();
-            std::cout << "Full! Removed iteration " << current_iteration << "from the following freq: " << current_frequency << std::endl;
           }
           std::cout << "Creating source for " << center_freq << " which is the " << current_frequency+1 << ". frequency. Current iteration: " << current_iteration << std::endl;
-          std::cout << "Current size delay_source_segment[current_frequency][current_iteration]: " << delay_source_segment[current_frequency][current_iteration].size() << std::endl;
-          std::cout << "Current size delay_source_segment[current_frequency]: " << delay_source_segment[current_frequency].size() << std::endl;
-          std::cout << "Current size delay_source_segment: " << delay_source_segment.size() << std::endl;
-
-          
           for(unsigned int i = 0; i < iq_vector.size(); i++) {
             delay_source_segment[current_frequency][current_iteration].push_back(iq_vector[i]);
           }
+          if (full){
+            std::cout << "Overwriting iteration " << current_iteration << " from the following freq: " << current_frequency << " to add a delay of: " << delay << std::endl;            
+            iq_vector.clear();
+            for(unsigned int i = 0; i < tmp_iq_vector.size(); i++) {
+              iq_vector.push_back(tmp_iq_vector[i]);
+            }
+          }
+          // //-- Print current delay_source_segment array for debugging
+          // for (unsigned int i = 0; i<delay_source_segment.size(); i++){
+          //   std::cout << "Elements at frequency "
+          //   << i << ": ";
+          //   for (unsigned int j = 0; j != delay_source_segment[i].size(); j++) {
+          //     std::cout << "Elements at iteration "
+          //     << j << ": ";
+          //     for (unsigned int k = 0; k != delay_source_segment[i][j].size(); k++) {
+          //       std::cout << delay_source_segment[i][j][k]<< ' ';
+          //     }
+          //     std::cout << std::endl;
+          //   }
+          // }
+        }
+
+        if (!init && i == ElectrosenseContext::getInstance()->getAvgFactor() -1) {
           current_frequency++;
         }
-        if (!init && current_iteration == delay){
-          std::cout << "Overwriting frequency" << current_frequency << std::endl;
-          iq_vector.clear();
-          for(unsigned int i = 0; i < tmp_iq_vector.size(); i++) {
-            iq_vector.push_back(tmp_iq_vector[i]);
+
+        //-- when all frequencies are saved and/or modified go to next iteration
+        if (i == ElectrosenseContext::getInstance()->getAvgFactor() -1 && current_frequency == affected_frequencies) {
+          std::cout << "Iteration saved, go to the next!" << std::endl;
+          current_frequency = 0;
+          current_iteration++;
+          //-- when the defined delay is reached, start again
+          if (current_iteration > delay){
+            std::cout << "Delay reached, start over!" << std::endl;
+            full = true;
+            current_iteration = 0;
+            current_frequency = 0;
           }
         }
+
       }
 
       //-- when init is done for all frequencies, change to "normal" mode
-      if (init && center_freq > 90000000){
+      if (init && center_freq > 400000000){
+        std::cout << "Initialisation finished!" << std::endl;
         init = false;
         current_iteration++;
       }
 
-      //-- when all frequencies are saved and/or modified go to next iteration
-      if (current_frequency == affected_frequencies) {
-        current_frequency = 0;
-        current_iteration++;
-      }
 
-      //-- when the defined delay is reached, start again
-      if (current_iteration == delay) {
-        current_iteration = 0;
-        current_frequency = 0;
-      }
-
-         
 //--------------------------------------------------------------------------------------------------------
-
-//-------------------------------------------------------------------------------------------------------------
-// DELAY
-//-------------------------------------------------------------------
-    // for (unsigned int i = 0; i < ElectrosenseContext::getInstance()->getAvgFactor(); i++) {
-    //   iq_vector.clear();
-    //   for (unsigned int j = 0; j < current_fft_size * 2; j = j + 2) {
-    //     iq_vector.push_back(std::complex<float>(
-    //       iq_buf[j + i * (current_fft_size - ElectrosenseContext::getInstance()->getSoverlap()) * 2],
-    //       iq_buf[j + 1 + i * (current_fft_size - ElectrosenseContext::getInstance()->getSoverlap()) * 2]));
-    //   }
-
-
-    // if(center_freq > 390000000 && center_freq < 400000000){
-
-    // }
-
 
 //-------------------------------------------------------------------------------------------------------------
 // DELAY - FILES
