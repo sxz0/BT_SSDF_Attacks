@@ -1,6 +1,8 @@
 #!/bin/bash
 
-echo "Start monitoring script"
+current=`date "+%Y-%m-%d_%H:%M:%S"`;
+echo "Start monitoring script at $current" 
+mkdir /data/$current
 
 for mode in normal repeat mimic confusion noise spoof freeze delay stop
 do
@@ -14,12 +16,13 @@ do
     else
         #SET MALICIOUS EXECUTABLE AND START MONITORING
         echo "Restarting es_sensor executable with new behavior for $mode"
+        mkdir /data/$current/$mode
         service electrosense-sensor-mqtt stop
         cp $mode /usr/bin/es_sensor
         service electrosense-sensor-mqtt start
         sleep 10
         echo "Starting monitoring script"
-        ./monitor.sh $mode &
+        ./monitor.sh $mode $current &
         # wait until get trace finished
         wait
         echo "Done."
