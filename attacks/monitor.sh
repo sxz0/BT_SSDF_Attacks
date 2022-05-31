@@ -26,6 +26,7 @@ while(($step<$total_loop));
 		# start perf and save results, without nanosleep
 		timeout -s 1 ${time_window} perf trace -o /data/$2/$1/${path}.txt -e !nanosleep -T -p ${pid};
 		python preprocessing_pref.py  /data/$2/$1/${path}.txt /data/$2/$1/${path}.csv
+		rm -rf /data/$2/$1/${path}.txt
 		echo "step ${step} finish";
 		((step=$step+1));
 	done;
