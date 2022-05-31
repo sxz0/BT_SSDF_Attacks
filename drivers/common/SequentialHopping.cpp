@@ -50,7 +50,7 @@ uint64_t SequentialHopping::nextHop() {
   // if (mIndex == 1) t2 = std::chrono::high_resolution_clock::now();
   if (mIndex >= mFreqs.size()){
     mIndex = 0;
-    std::cout << "Hopped through all frequency bands, start again!"<< std::endl;
+    // std::cout << "Hopped through all frequency bands, start again!"<< std::endl;
     // t1 = std::chrono::high_resolution_clock::now();
     // std::chrono::duration<double> elapsed = t2-t1;
     // std::cout << "Elapsed time " << elapsed.count() << " seconds " << std::endl;
