@@ -21,7 +21,7 @@ while(($step<$total_loop));
 				pid=$(ps aux | grep es_sensor | grep -v sudo | grep -v grep | awk '{print $2}');
 			done
 		echo "start to perf system calls for $1 in loop $step, pid is $pid"
-		current=`date "+%Y-%m-%d_%H:%M:%S"`;
+		current=`date "+%Y-%m-%d_%H-%M-%S"`;
 		path="$1_${pid}_${step}_${current}";
 		# start perf and save results, without nanosleep
 		timeout -s 1 ${time_window} perf trace -o /data/$2/$1/${path}.txt -e !nanosleep -T -p ${pid};

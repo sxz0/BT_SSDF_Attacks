@@ -1,6 +1,6 @@
 #!/bin/bash
 
-current=`date "+%Y-%m-%d_%H:%M:%S"`;
+current=`date "+%Y-%m-%d_%H-%M-%S"`;
 echo "Start monitoring script at $current" 
 mkdir /data/$current
 
