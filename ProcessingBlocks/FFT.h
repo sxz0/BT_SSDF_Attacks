@@ -59,7 +59,14 @@ public:
 private:
   void run();
 
-  void ComputeFFT(std::vector<SpectrumSegment *> &segments);
+  void ComputeFFT_normal(std::vector<SpectrumSegment *> &segments);
+  void ComputeFFT_repeat(std::vector<SpectrumSegment *> &segments, std::vector<std::complex<float>> &repeat_source_segment);
+  void ComputeFFT_mimic(std::vector<SpectrumSegment *> &segments, int &current_frequency,  std::vector<std::complex<float>> &mimic_source_segment);
+  void ComputeFFT_confusion(std::vector<SpectrumSegment *> &segments);
+  void ComputeFFT_noise(std::vector<SpectrumSegment *> &segments);
+  void ComputeFFT_spoof(std::vector<SpectrumSegment *> &segments);
+  void ComputeFFT_freeze(std::vector<SpectrumSegment *> &segments);
+  void ComputeFFT_delay(std::vector<SpectrumSegment *> &segments);
 
   ReaderWriterQueue<SpectrumSegment *> *mQueueOut;
   ReaderWriterQueue<SpectrumSegment *> *mQueueIn;

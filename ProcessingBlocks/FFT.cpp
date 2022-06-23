@@ -55,6 +55,65 @@ void FFT::run() {
     throw std::logic_error("Queue[IN|OUT] are NULL!");
   }
 
+
+  //----------------------------------------------------------------------------------------------------------
+  // REPEAT - Setup
+  //---------------------
+  // std::vector<std::complex<float>> repeat_source_segment;
+
+  //----------------------------------------------------------------------------------------------------------
+  // MIMIC - Setup
+  //---------------------
+  // int current_frequency = 0;
+  // std::vector<std::complex<float>> mimic_source_segment;
+
+  //----------------------------------------------------------------------------------------------------------
+  // CONFUSION/EXCHANGE/DISORDER - Setup
+  //---------------------
+  // int current_frequency = 0;
+  // std::vector<std::vector<std::complex<float>>> confusion_source_segment_1;
+  // std::vector<std::vector<std::complex<float>>> confusion_source_segment_2;
+
+  //----------------------------------------------------------------------------------------------------------
+  // NOISE - Setup
+  //---------------------
+  //  std::uniform_real_distribution<double> dist(0, 10);
+  //  std::random_device urandom("/dev/urandom");
+
+  //-------------------------------------------------------------------------------
+
+  //----------------------------------------------------------------------------------------------------------
+  // SPOOF  - Setup
+  //---------------------
+  // std::uniform_real_distribution<double> dist(0, 20);
+  // std::random_device urandom("/dev/urandom");
+  // int current_frequency = 0;
+  // std::vector<std::vector<std::complex<float>>>  spoof_source_segment;
+
+  //-------------------------------------------------------------------------------
+
+  //----------------------------------------------------------------------------------------------------------
+  // FREEZE - Setup
+  //---------------------
+  // std::vector<std::vector<std::complex<float>>> freeze_source_segment;
+  // int current_frequency = 0;
+  // bool freeze = false;
+
+  //-------------------------------------------------------------------------------
+
+  //----------------------------------------------------------------------------------------------------------
+  // DELAY - Setup
+  //---------------------
+  //  int affected_frequencies = 0;
+  //  int current_frequency = 0;
+  //  int current_iteration = 0;
+  //  int delay = 10;
+  //  bool init = true;
+  //  bool full = false;
+  //  std::vector<std::vector<std::vector<std::complex<float>>>> delay_source_segment;
+  //  std::vector<std::complex<float>> tmp_iq_vector;
+  //-------------------------------------------------------------------------------
+
   while (mRunning) {
 
     if (mQueueIn && mQueueIn->try_dequeue(segment)) {
@@ -64,7 +123,15 @@ void FFT::run() {
       if (mFFTBatch.size() == fft_batch_len) { // fft_batch_len {
 
         // Wait for FFT_batch segments to prepare data and send to the CPU
-        ComputeFFT(mFFTBatch);
+
+        //ComputeFFT_normal(mFFTBatch);
+        //ComputeFFT_repeat(mFFTBatch, repeat_source_segment);
+        ComputeFFT_mimic(mFFTBatch, current_frequency, mimic_source_segment);
+        //ComputeFFT_confusion(mFFTBatch);
+        //ComputeFFT_noise(mFFTBatch);
+        //ComputeFFT_spoof(mFFTBatch);
+        //ComputeFFT_freeze(mFFTBatch);
+        //ComputeFFT_delay(mFFTBatch);
 
         for (unsigned int i = 0; i < mFFTBatch.size(); i++)
           mQueueOut->enqueue(mFFTBatch[i]);
@@ -77,15 +144,123 @@ void FFT::run() {
   }
 }
 
-void FFT::ComputeFFT(std::vector<SpectrumSegment *> &segments) {
 
-//  std::uniform_real_distribution<double> dist(0, 10);
-//  std::random_device urandom("/dev/urandom");
+//----------------------------------------------------------------------------------------------------------
+//  Normal
+//----------------------------------------------------------------------------------------------------------
+void FFT::ComputeFFT_normal(std::vector<SpectrumSegment *> &segments) {
 
-//  bool exchange = false;
-//  bool copy_1freq = true;
-//  bool copy_2freq= true;
-//  int count = 0;
+  unsigned int signal_len =
+      1 << ElectrosenseContext::getInstance()->getLog2FftSize();
+  int flags = 0;
+  std::complex<float> signal_freq[signal_len];
+  
+  // std::cout << "Compute FFT with current segment size being " << segments.size() << " and center freq " << segments[0]->getCenterFrequency() << std::endl;
+
+  for (unsigned int i = 0; i < segments.size(); i++) {
+
+    std::complex<float> *signal = segments[i]->getIQSamples().data();
+
+    fftplan q_f = fft_create_plan(signal_len, signal, signal_freq,
+                                  LIQUID_FFT_FORWARD, flags);
+    fft_execute(q_f);
+    fft_shift(signal_freq, signal_len);
+
+    //  Start -------------------------------------------------------------------------------------------------
+    //  End -------------------------------------------------------------------------------------------------
+
+    // std::cout << "Testing FFT for segment" << i << " with signal_len " << signal_len << " and signal_freq "<< signal_freq << std::endl;
+    // std::cout << "Current valuesin signal_freq: ";
+    // for(std::complex<float> i : signal_freq) 
+    //   std::cout << i << ", " << std::endl;
+    // std::cout << std::endl;
+
+    struct timespec current_time;
+    clock_gettime(CLOCK_REALTIME, &current_time);
+
+
+      segments[i]->getIQSamplesFreq().assign(signal_freq,
+                                          signal_freq + signal_len);
+
+    fft_destroy_plan(q_f);
+  }
+}
+
+//----------------------------------------------------------------------------------------------------------
+//  Repeat
+//----------------------------------------------------------------------------------------------------------
+void FFT::ComputeFFT_repeat(std::vector<SpectrumSegment *> &segments, std::vector<std::complex<float>> &repeat_source_segment) {
+
+  //----------------------------------------------------------------------------------------------------------
+  // GLOBAL - Setup
+  //---------------------
+  uint64_t attacked_freq_1 = 90000000;
+  uint64_t attack_bw = 1000000;
+  uint64_t attacked_freq_2 = 100000000;
+  uint64_t attack_impact = 3;
+
+  unsigned int signal_len =
+      1 << ElectrosenseContext::getInstance()->getLog2FftSize();
+  int flags = 0;
+  std::complex<float> signal_freq[signal_len];
+  
+
+  for (unsigned int i = 0; i < segments.size(); i++) {
+
+    std::complex<float> *signal = segments[i]->getIQSamples().data();
+
+    fftplan q_f = fft_create_plan(signal_len, signal, signal_freq,
+                                  LIQUID_FFT_FORWARD, flags);
+    fft_execute(q_f);
+    fft_shift(signal_freq, signal_len);
+
+    struct timespec current_time;
+    clock_gettime(CLOCK_REALTIME, &current_time);
+
+    //  Start -------------------------------------------------------------------------------------------------
+
+    //-- Indicates the frequency segment affected by the attack
+    if (segments[i]->getCenterFrequency()  >= attacked_freq_1 && segments[i]->getCenterFrequency()  <= attacked_freq_1 + attack_bw ) {
+
+      //-- If the vector with the PSD values already exists, it copies its content to the segment to be sent
+      if (!repeat_source_segment.empty()) {
+        for(unsigned int i = 0; i < attack_impact; i++) {
+          signal_freq[i] = repeat_source_segment[i];
+        }
+      }
+
+      //-- If the vector is empty it creates it and saves the PSD values of the selected frequency segment
+      else {
+        for(unsigned int i = 0; i < attack_impact; i++) {
+          repeat_source_segment.push_back(signal_freq[i]);
+        }
+      }
+    }
+
+    //  End -------------------------------------------------------------------------------------------------
+
+
+      segments[i]->getIQSamplesFreq().assign(signal_freq,
+                                          signal_freq + signal_len);
+
+    fft_destroy_plan(q_f);
+  }
+}
+
+
+//----------------------------------------------------------------------------------------------------------
+//  MIMIC - Copies one band in another band
+//---------------------------------------
+void FFT::ComputeFFT_mimic(std::vector<SpectrumSegment *> &segments, int &current_frequency,  std::vector<std::complex<float>> &mimic_source_segment) {
+  
+  //----------------------------------------------------------------------------------------------------------
+  // GLOBAL - Setup
+  //---------------------
+  uint64_t attacked_freq_1 = 90000000;
+  uint64_t attack_bw = 1000000;
+  uint64_t attacked_freq_2 = 100000000;
+  uint64_t attack_impact = 3;
+
 
   unsigned int signal_len =
       1 << ElectrosenseContext::getInstance()->getLog2FftSize();
@@ -105,339 +280,357 @@ void FFT::ComputeFFT(std::vector<SpectrumSegment *> &segments) {
     struct timespec current_time;
     clock_gettime(CLOCK_REALTIME, &current_time);
 
+    //  Start -------------------------------------------------------------------------------------------------
 
-//--------------------------
-// NOISE
-//-------------------------
-/*
-    if (segments[i]->getCenterFrequency() > 100000000 && segments[i]->getCenterFrequency() < 102000000){ 
-      for (unsigned int j=0; j < 3; j++){
-	float randomValue = dist(urandom);
+    std::cout << "mimic_source_segment is now " << mimic_source_segment.size() << " big" << std::endl;
+        //--The segment that needs to be copied
+        if (segments[i]->getCenterFrequency() > attacked_freq_1 && segments[i]->getCenterFrequency() < attacked_freq_1 + attack_bw ) {
+          for(unsigned int j = 0; j < attack_impact; j++){
+              mimic_source_segment.push_back(signal_freq[j]);
+          }
+        }
+        //--The segment the copied PSD values are pasted into
+        else if (segments[i]->getCenterFrequency() > attacked_freq_2 && segments[i]->getCenterFrequency() < attacked_freq_2 + attack_bw) {
+          std::cout << "Current values in mimic_source_signal: ";
+          for(std::complex<float> i : mimic_source_segment) 
+            std::cout << i << ", " << std::endl;
+          std::cout << std::endl;
+          for(unsigned int j = 0; j < attack_impact; j++){
+            std::cout << "Copied " << j+current_frequency*attack_impact << " position in mimic_source_segment" << std::endl;
+            uint64_t position = j+current_frequency*attack_impact;
+            signal_freq[j] = mimic_source_segment[position];
+          }
+          current_frequency++;
+        }
+
+        if (segments[i]->getCenterFrequency() > attacked_freq_2 + attack_bw) {
+          mimic_source_segment.clear();
+          current_frequency = 0;
+        }
+
+    //  End -------------------------------------------------------------------------------------------------
+
+
+      segments[i]->getIQSamplesFreq().assign(signal_freq,
+                                          signal_freq + signal_len);
+
+    fft_destroy_plan(q_f);
+  }
+}
+
+//----------------------------------------------------------------------------------------------------------
+//  Confusion
+//----------------------------------------------------------------------------------------------------------
+void FFT::ComputeFFT_confusion(std::vector<SpectrumSegment *> &segments) {
+
+  unsigned int signal_len =
+      1 << ElectrosenseContext::getInstance()->getLog2FftSize();
+  int flags = 0;
+  std::complex<float> signal_freq[signal_len];
+  
+  for (unsigned int i = 0; i < segments.size(); i++) {
+
+    std::complex<float> *signal = segments[i]->getIQSamples().data();
+
+    fftplan q_f = fft_create_plan(signal_len, signal, signal_freq,
+                                  LIQUID_FFT_FORWARD, flags);
+    fft_execute(q_f);
+    fft_shift(signal_freq, signal_len);
+
+    //  Start -------------------------------------------------------------------------------------------------
+    
+      //-- The first frequency segment that needs to be exchanged
+      if (segments[i]->getCenterFrequency() > attacked_freq_1 && segments[i]->getCenterFrequency() < attacked_freq_1 + attack_bw ) {
+        //-- Save the sensed PSD values in temporary variable
+        for(unsigned int j = 0; j < attack_impact; j++){
+            confusion_source_segment_1.push_back(signal_freq[j]);
+        }
+        //-- overwrite the sensed PSD values with the second segment if it already exists
+        if (!confusion_source_segment_2.empty()) {
+          iq_vector.clear();
+          for(unsigned int j = 0; j < attack_impact; j++){
+              confusion_source_segment_1.push_back(signal_freq[j]);
+          }
+          if (i == ElectrosenseContext::getInstance()->getAvgFactor() - 1) {
+            current_frequency++;
+          }
+        }
+      }
+
+      if (current_frequency != 0 && segments[i]->getCenterFrequency() > attacked_freq_1 + attack_bw  && segments[i]->getCenterFrequency() < attacked_freq_2 ) {
+        confusion_source_segment_2.clear();
+        current_frequency = 0;
+      }
+
+      //-- The second frequency segment that needs to be exchanged
+      if (segments[i]->getCenterFrequency() > attacked_freq_2 && segments[i]->getCenterFrequency() < attacked_freq_2 + attack_bw) {
+        //-- Save the sensed PSD values in temporary variable
+        if (i == 0){
+          confusion_source_segment_2.push_back(iq_vector);
+        }
+        //-- overwrite the sensed PSD values with the first segment
+        iq_vector.clear();
+        for(unsigned int i = 0; i < confusion_source_segment_1[current_frequency].size(); i++) {
+          iq_vector.push_back(confusion_source_segment_1[current_frequency][i]);
+        }
+        if (i == ElectrosenseContext::getInstance()->getAvgFactor() - 1) {
+          current_frequency++;
+        }
+      }
+
+      if (current_frequency != 0 && center_freq > attacked_freq_2 + attack_bw) {
+        confusion_source_segment_1.clear();
+        current_frequency = 0;
+      }
+
+    //  End -------------------------------------------------------------------------------------------------
+
+    struct timespec current_time;
+    clock_gettime(CLOCK_REALTIME, &current_time);
+
+
+      segments[i]->getIQSamplesFreq().assign(signal_freq,
+                                          signal_freq + signal_len);
+
+    fft_destroy_plan(q_f);
+  }
+}
+
+//----------------------------------------------------------------------------------------------------------
+//  Noise
+//----------------------------------------------------------------------------------------------------------
+void FFT::ComputeFFT_noise(std::vector<SpectrumSegment *> &segments) {
+
+  unsigned int signal_len =
+      1 << ElectrosenseContext::getInstance()->getLog2FftSize();
+  int flags = 0;
+  std::complex<float> signal_freq[signal_len];
+  
+  for (unsigned int i = 0; i < segments.size(); i++) {
+
+    std::complex<float> *signal = segments[i]->getIQSamples().data();
+
+    fftplan q_f = fft_create_plan(signal_len, signal, signal_freq,
+                                  LIQUID_FFT_FORWARD, flags);
+    fft_execute(q_f);
+    fft_shift(signal_freq, signal_len);
+
+    //  Start -------------------------------------------------------------------------------------------------
+      
+    //-- Indicates the frequency segments affected by the attack
+    if (segments[i]->getCenterFrequency() >= attacked_freq_1 && segments[i]->getCenterFrequency() <= attacked_freq_1 + attack_bw){
+
+      //-- Adds random noise to j positions of the selected segments -- 3 when the attack impact is 20khz, and 25 when it is 200khz 
+      for (unsigned int j=0; j < attack_impact; j++){
+        float randomValue = dist(urandom);
         std::complex<float> z1 = randomValue * 1i;
-	signal_freq[j] = signal_freq[j] + z1;
+        signal_freq[j] = signal_freq[j] + z1;
       }
     }
-*/
-//-------------
+
+    //  End -------------------------------------------------------------------------------------------------
+
+    struct timespec current_time;
+    clock_gettime(CLOCK_REALTIME, &current_time);
 
 
-//--------------------------
-//MIMIC
-//-------------------------
-/*
-      std::string data;
-      std::complex<float> f;
+      segments[i]->getIQSamplesFreq().assign(signal_freq,
+                                          signal_freq + signal_len);
 
-      if (segments[i]->getCenterFrequency() > 90000000 && segments[i]->getCenterFrequency() < 91000000 ) {
-        //Create folders if they do not exists
-        std::string root_folder_name ="/root/mimic/";
-        mkdir(root_folder_name.c_str(), 0777);
-        std::ofstream file_write_1 ("/root/mimic/vector.txt");
-
-        for(unsigned int j = 0; j < 3; j++){
-          file_write_1 << signal_freq[j] << std::endl;
-        }
-        file_write_1.close();
-      }
-      else if (segments[i]->getCenterFrequency() > 300000000 && segments[i]->getCenterFrequency() < 301000000) {
-        int counter =0;
-        // Copy in  Iq_vector the content of file 2
-        std::ifstream file_2 ("/root/mimic/vector.txt");
-        while (!file_2.eof()) {
-          file_2 >> data;
-          std::istringstream is(data);
-          is>>f;
-          signal_freq[counter] = f;
-          counter = counter + 1;
-        }
-        file_2.close();
-      }
-
-*/
-//------------------------
-
-
-//-----------------------------
-// REPEAT
-//-----------------------
-/*
-
-      std::string data;
-      std::complex<float> f;
-
-
-      if (segments[i]->getCenterFrequency()  >= 400000000 && segments[i]->getCenterFrequency()  <= 401000000) {
-        //Create folders if they do not exists
-        std::string root_folder_name ="/root/repeat/";
-        mkdir(root_folder_name.c_str(), 0777);
-
-        std::ifstream file("/root/repeat/vector.txt");
-
-        if (file.good()) {
-	int counter =0;
-         while (!file.eof()) {
-           file >> data;
-           std::istringstream is(data);
-           is>>f;
-           signal_freq[counter] = f;
-           counter = counter + 1;
-         }
-          file.close();
-        }
-        else {
-          std::ofstream outfile ("/root/repeat/vector.txt");
-          for(unsigned int i = 0; i < 25; i++) {
-            outfile << signal_freq[i] << std::endl;
-          }
-          outfile.close();
-        }
-     }
-
-*/
-//-------------------------
-
-
-//--------------------------
-// SPOOF
-//-------------------------
-/*
-      std::string data;
-      std::complex<float> f;
-
-      if (segments[i]->getCenterFrequency() > 90000000 && segments[i]->getCenterFrequency() < 91000000 ) {
-        //Create folders if they do not exists
-        std::string root_folder_name ="/root/spoof/";
-        mkdir(root_folder_name.c_str(), 0777);
-        std::ofstream file_write_1 ("/root/spoof/vector.txt");
-
-        for(unsigned int j = 0; j < 3; j++){
-          file_write_1 << signal_freq[j] << std::endl;
-        }
-        file_write_1.close();
-      }
-      else if (segments[i]->getCenterFrequency() > 300000000 && segments[i]->getCenterFrequency() < 301000000) {
-        int counter =0;
-        // Copy in  Iq_vector the content of file 2
-        std::ifstream file_2 ("/root/spoof/vector.txt");
-        while (!file_2.eof()) {
-          file_2 >> data;
-          std::istringstream is(data);
-          is>>f;
-          float randomValue = dist(urandom);
-          std::complex<float> z1 = randomValue * 1i;
-          signal_freq[counter] = f + z1;
-          counter = counter + 1;
-        }
-        file_2.close();
-      }
-
-*/
-//----------------------------------------------------------------------------------------------------------
-
+    fft_destroy_plan(q_f);
+  }
+}
 
 //----------------------------------------------------------------------------------------------------------
-// CONFUSION
-//--------------------
-/*
+//  Spoof
+//----------------------------------------------------------------------------------------------------------
+void FFT::ComputeFFT_spoof(std::vector<SpectrumSegment *> &segments) {
 
-      std::string data;
-      std::complex<float> f;
-      //std::vector<std::complex<float>> aux;
+  unsigned int signal_len =
+      1 << ElectrosenseContext::getInstance()->getLog2FftSize();
+  int flags = 0;
+  std::complex<float> signal_freq[signal_len];
+  
+  for (unsigned int i = 0; i < segments.size(); i++) {
 
-      if (!exchange && segments[i]->getCenterFrequency() > 300000000 && segments[i]->getCenterFrequency() < 301000000) {
-         //Create folders if they do not exists
-         std::string root_folder_name ="/root/disorder/";
-         mkdir(root_folder_name.c_str(), 0777);
+    std::complex<float> *signal = segments[i]->getIQSamples().data();
 
-         std::ofstream file_write_1 ("/root/disorder/copy_vector_1.txt");
-         std::ofstream file_write_2 ("/root/disorder/copy_vector_2.txt");
-         for(unsigned int i = 0; i < 25; i++){
-           file_write_1 << signal_freq[i] << std::endl;
-           file_write_2 << signal_freq[i] << std::endl;
+    fftplan q_f = fft_create_plan(signal_len, signal, signal_freq,
+                                  LIQUID_FFT_FORWARD, flags);
+    fft_execute(q_f);
+    fft_shift(signal_freq, signal_len);
+
+    //  Start -------------------------------------------------------------------------------------------------
+
+    //--The segment that needs to be copied
+    if (segments[i]->getCenterFrequency() > attacked_freq_1 && segments[i]->getCenterFrequency() < attacked_freq_1 + attack_bw ) {
+      for(unsigned int j = 0; j < attack_impact; j++){
+          mimic_source_segment.push_back(signal_freq[j]);
+      }
+    }
+    //--The segment the copied PSD values are pasted into
+    else if (segments[i]->getCenterFrequency() > attacked_freq_2 && segments[i]->getCenterFrequency() < attacked_freq_2 + attack_bw) {
+      for(unsigned int j = 0; j < attack_impact; j++){
+        float randomValue = dist(urandom);
+        std::complex<float> z1 = randomValue * 1i;
+        signal_freq[j] = mimic_source_segment[j] + z1;
+      }
+    }
+
+    if (segments[i]->getCenterFrequency() > attacked_freq_2 + attack_bw) {
+      mimic_source_segment.clear();
+    }
+
+
+    //  End -------------------------------------------------------------------------------------------------
+
+    struct timespec current_time;
+    clock_gettime(CLOCK_REALTIME, &current_time);
+
+
+      segments[i]->getIQSamplesFreq().assign(signal_freq,
+                                          signal_freq + signal_len);
+
+    fft_destroy_plan(q_f);
+  }
+}
+
+//----------------------------------------------------------------------------------------------------------
+//  Freeze
+//----------------------------------------------------------------------------------------------------------
+void FFT::ComputeFFT_freeze(std::vector<SpectrumSegment *> &segments) {
+
+  unsigned int signal_len =
+      1 << ElectrosenseContext::getInstance()->getLog2FftSize();
+  int flags = 0;
+  std::complex<float> signal_freq[signal_len];
+  
+  for (unsigned int i = 0; i < segments.size(); i++) {
+
+    std::complex<float> *signal = segments[i]->getIQSamples().data();
+
+    fftplan q_f = fft_create_plan(signal_len, signal, signal_freq,
+                                  LIQUID_FFT_FORWARD, flags);
+    fft_execute(q_f);
+    fft_shift(signal_freq, signal_len);
+
+    //  Start -------------------------------------------------------------------------------------------------
+
+    //-- Indicates the frequency segment affected by the attack
+    if (segments[i]->getCenterFrequency() > attacked_freq_1 && center_freq < attacked_freq_1 + attack_bw) {
+        //-- Create the source array on the first iteration
+        if (!freeze){
+          if (i == ElectrosenseContext::getInstance()->getAvgFactor() -1){
+            freeze_source_segment.push_back(iq_vector);
+          }
+        }else{
+          iq_vector.clear();
+          for(unsigned int i = 0; i < freeze_source_segment[current_frequency].size(); i++) {
+            iq_vector.push_back(freeze_source_segment[current_frequency][i]);
+          }
+          if (i == ElectrosenseContext::getInstance()->getAvgFactor() -1) {
+            current_frequency++;
+          }
+        }
+      }
+
+      if (!freeze  && center_freq > attacked_freq_1 + attack_bw) {
+        freeze = true;
+      }
+
+      if (current_frequency != 0 && center_freq > attacked_freq_1 + attack_bw) current_frequency = 0;
+
+    //  End -------------------------------------------------------------------------------------------------
+
+    struct timespec current_time;
+    clock_gettime(CLOCK_REALTIME, &current_time);
+
+
+      segments[i]->getIQSamplesFreq().assign(signal_freq,
+                                          signal_freq + signal_len);
+
+    fft_destroy_plan(q_f);
+  }
+}
+
+//----------------------------------------------------------------------------------------------------------
+//  Delay
+//----------------------------------------------------------------------------------------------------------
+void FFT::ComputeFFT_delay(std::vector<SpectrumSegment *> &segments) {
+
+  unsigned int signal_len =
+      1 << ElectrosenseContext::getInstance()->getLog2FftSize();
+  int flags = 0;
+  std::complex<float> signal_freq[signal_len];
+  
+  for (unsigned int i = 0; i < segments.size(); i++) {
+
+    std::complex<float> *signal = segments[i]->getIQSamples().data();
+
+    fftplan q_f = fft_create_plan(signal_len, signal, signal_freq,
+                                  LIQUID_FFT_FORWARD, flags);
+    fft_execute(q_f);
+    fft_shift(signal_freq, signal_len);
+
+    //  Start -------------------------------------------------------------------------------------------------
+       //-- Indicates the frequency segment affected by the attack
+       if (center_freq > attacked_freq_1 && center_freq < attacked_freq_1 + attack_bw) {
+         //-- Init phase: create 3d array with frequencies x delay x values
+         if (init && i == 0){
+           std::vector<std::vector<std::complex<float>>> tmp_vector(delay);
+           tmp_vector.insert(tmp_vector.begin(), iq_vector);
+           delay_source_segment.push_back(tmp_vector);
+           affected_frequencies++;
          }
-         file_write_1.close();
-         file_write_2.close();
-         exchange = true;
-      }
-      else{
-        if (exchange && (segments[i]->getCenterFrequency() > 90000000 && segments[i]->getCenterFrequency() < 91000000)){
-          if (copy_1freq){
+         //-- Fill the source array with the current data
+         if (!init && i == 0){
+           //-- If the array is full, save the previous data to a temporary variable
+           if (full){
+             tmp_iq_vector.clear();
+             for(unsigned int i = 0; i < delay_source_segment[current_frequency][current_iteration].size(); i++) {
+               tmp_iq_vector.push_back(delay_source_segment[current_frequency][current_iteration][i]);
+             }
+             delay_source_segment[current_frequency][current_iteration].clear();
+           }
+           for(unsigned int i = 0; i < iq_vector.size(); i++) {
+             delay_source_segment[current_frequency][current_iteration].push_back(iq_vector[i]);
+           }
+           if (full){
+             iq_vector.clear();
+             for(unsigned int i = 0; i < tmp_iq_vector.size(); i++) {
+               iq_vector.push_back(tmp_iq_vector[i]);
+             }
+           }
+         }
 
-            // Copy in file 1 the content of Iq_vector
-            std::ofstream file_write_1 ("/root/disorder/copy_vector_1.txt");
-            for(unsigned int i = 0; i < 25; i++){
-              file_write_1 << signal_freq[i] << std::endl;
-            }
-            file_write_1.close();
+         if (!init && i == ElectrosenseContext::getInstance()->getAvgFactor() -1) {
+           current_frequency++;
+         }
 
-            // Copy in  Iq_vector the content of file 2
-            std::ifstream file_2 ("/root/disorder/copy_vector_2.txt");
+          //-- when all frequencies are saved and/or modified go to next iteration
+         if (i == ElectrosenseContext::getInstance()->getAvgFactor() -1 && current_frequency == affected_frequencies) {
+           current_frequency = 0;
+           current_iteration++;
+           //-- when the defined delay is reached, start again
+           if (current_iteration > delay){
+             full = true;
+             current_iteration = 0;
+             current_frequency = 0;
+           }
+         }
 
-            int counter =0;
-            while (!file_2.eof()) {
-              file_2 >> data;
-              std::istringstream is(data);
-              is>>f;
-              signal_freq[counter] = f;
-              counter = counter + 1;
-            }
-            file_2.close();
-            copy_1freq = false;
-
-          }else{
-            // Copy in  Iq_vector the content of file 2
-            std::ifstream file_2 ("/root/disorder/copy_vector_2.txt");
-
-            int counter =0;
-            while (!file_2.eof()) {
-              file_2 >> data;
-              std::istringstream is(data);
-              is>>f;
-              signal_freq[counter] = f;
-              counter = counter + 1;
-            }
-            file_2.close();
-            copy_2freq = true;
-          }
-        }
-        if (exchange && (segments[i]->getCenterFrequency() > 300000000 && segments[i]->getCenterFrequency() < 301000000)){
-          if (copy_2freq){
-            // Copy in file 2 the content of iq_vector
-            std::ofstream file_write_2 ("/root/disorder/copy_vector_2.txt");
-            for(unsigned int i = 0; i < 25; i++){
-              file_write_2 << signal_freq[i] << std::endl;
-            }
-            file_write_2.close();
-
-            // Copy in iq_vector the content of file 1
-            std::ifstream file_1 ("/root/disorder/copy_vector_1.txt");
-
-            int counter = 0;
-            while (!file_1.eof()) {
-              file_1 >> data;
-              std::istringstream is(data);
-              is>>f;
-              signal_freq[counter] = f;
-              counter = counter + 1;
-            }
-            file_1.close();
-            copy_2freq = false;
-          }else{
-            //Copy in iq_vector the content of file 1
-            std::ifstream file_1 ("/root/disorder/copy_vector_1.txt");
-
-            int counter =0;
-            while (!file_1.eof()) {
-              file_1 >> data;
-              std::istringstream is(data);
-              is>>f;
-              signal_freq[counter] = f;
-              counter = counter + 1;
-            }
-            file_1.close();
-            copy_1freq = true;
-          }
-        }
-      }
-
-*/
-//-----------------------------------------------
-
-//-------------------------------------------------------------------------------------------------------------
-// DELAY -
-//-------------------------------------------------------------------
-/*
-
-      if(segments[i]->getCenterFrequency() > 80000000 && segments[i]->getCenterFrequency() < 81000000){
-        //Create folders if they do not exists
-        std::string root_folder_name ="/root/delay/";
-        mkdir(root_folder_name.c_str(), 0777);
-        std::string segment_folder_name ="/root/delay/"+std::to_string(segments[i]->getCenterFrequency());
-        const char* dirname = segment_folder_name.c_str();
-        mkdir(dirname, 0777);
-
-        //Generate the name of the files saving the PSD of each RF Segment
-        count = 0;
-        std::string filename ="/root/delay/"+std::to_string(segments[i]->getCenterFrequency())+"/"+std::to_string(current_time.tv_sec)+"_"+std::to_string(count)+".txt";
-        std::ifstream f (filename);
-        bool exist = f.good();
-
-        while (exist){
-          count = count + 1;
-          filename ="/root/delay/"+std::to_string(segments[i]->getCenterFrequency())+"/"+std::to_string(current_time.tv_sec)+"_"+std::to_string(count)+".txt";
-          std::ifstream f (filename);
-          exist = f.good();
         }
 
-        //Creates the file and saves the PSD values of the segment
-        std::ofstream file (filename);
-        for(unsigned int i = 0; i <26; i++) {
-          file << signal_freq[i] << std::endl;
-        }
-        file.close();
-        //std::cout <<"+Create new file :" <<filename << std::endl;
+       //-- when init is done for all frequencies, change to "normal" mode
+       if (init && center_freq > attacked_freq_1 + attack_bw){
+         init = false;
+         current_iteration++;
+       }
 
-        //Copies the PSD values of the oldest file in the iq_vector and delets the files
-        int time = current_time.tv_sec - 0000000100;
-        std::string str;
-        std::vector<std::string> files;
-        int num;
-        DIR *dr;
-        struct dirent *en;
+    //  End -------------------------------------------------------------------------------------------------
 
-        dr = opendir(segment_folder_name.c_str()); //open all directory
-        if (dr) {
-          while ((en = readdir(dr)) != NULL) {
-            str = en->d_name;
-            //std::cout<<str<<" ";
-            if (str != "." && str != ".."){
-                files.push_back(str);
-            }
-          }
-          std::sort(files.begin(), files.end());
-          for (const std::string &s_aux:files){
-              str = s_aux;
-              //std::cout << "str: " << str << std::endl;
-              str = str.substr(0,10);
-              std::stringstream ss;
-              ss << str;
-              ss >> num;
-              //std::string var (en->d_name);
-              //std::cout<<str<<" ";
-              //std::cout<<num<<" "<<std::endl;
-              //std::cout <<"file Name: " << var << " File time: " << num << " time to delete: "<< time <<std::endl;
-              if ((num < time)){
-                //std::cout << "Old File found: " << en->d_name << std::endl;
-                filename = "/root/delay/"+std::to_string(segments[i]->getCenterFrequency())+"/"+s_aux;
-                //std::cout <<"=Copy from Old file to vector :" <<filename << std::endl;
-                std::ifstream file (filename);
-                //std::cout<<filename<<std::endl;
-                if (file.good()) {
-
-		  int iterator = 0;
-                  while (!file.eof()) {
-                    std::complex<float> f_f;
-                    std::string data;
-                    file >> data;
-                    std::istringstream is(data);
-                    is >> f_f;
-                    signal_freq[iterator] = f_f;
-                    iterator = iterator + 1;
-                  }
-                  file.close();
-                  //std::cout << "Delete: " << filename <<std::endl;
-                  remove(filename.c_str());
-                  break;
-                }
-              }
-          }
-          closedir(dr); //close all directory
-        }
-      }
-
-*/
-//--------------------------------------------------------------------------------------------------------
-
+    struct timespec current_time;
+    clock_gettime(CLOCK_REALTIME, &current_time);
 
 
       segments[i]->getIQSamplesFreq().assign(signal_freq,

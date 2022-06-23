@@ -1,8 +1,8 @@
 #!/bin/bash
 
-total_loop=1;
+total_loop=3;
 step=0;
-time_window=60;
+time_window=360;
 # the total monitoring time is total_loop * time_window
 while(($step<$total_loop));
 	do
@@ -24,9 +24,9 @@ while(($step<$total_loop));
 		current=`date "+%Y-%m-%d_%H-%M-%S"`;
 		path="$1_${pid}_${step}_${current}";
 		# start perf and save results, without nanosleep
-		timeout -s 1 ${time_window} perf trace -o /data/$2/$1/${path}.txt -e !nanosleep -T -p ${pid};
-		python preprocessing_pref.py  /data/$2/$1/${path}.txt /data/$2/$1/${path}.csv
-		rm -rf /data/$2/$1/${path}.txt
+		timeout -s 1 ${time_window} perf trace -o /data/data/$2/$1/${path}.txt -e !nanosleep -T -p ${pid};
+		python preprocessing_pref.py  /data/data/$2/$1/${path}.txt /data/data/$2/$1/${path}.csv
+		rm -rf /data/data/$2/$1/${path}.txt
 		echo "step ${step} finish";
 		((step=$step+1));
 	done;
