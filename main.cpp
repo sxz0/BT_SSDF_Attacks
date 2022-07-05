@@ -189,7 +189,7 @@ void usage(char *name) {
 void parse_args(int argc, char *argv[]) {
 
   int opt;
-  const char *options = "hd:z:c:k:g:y:s:f:b:a:o:x:q:t:r:w:l:m:n:u:p:i:e:";
+  const char *options = "hd:z:c:k:g:y:s:f:b:a:o:x:q:t:r:w:l:m:n:u:p:i:e:j:v:";
 
   // Option arguments
   while ( (opt = getopt(argc, argv, options)) != -1) {
@@ -272,19 +272,27 @@ void parse_args(int argc, char *argv[]) {
     case 'i':
       ElectrosenseContext::getInstance()->setIface(strdup(optarg));
       break;
-
+    case 'j':
+      ElectrosenseContext::getInstance()->setBandwidth(atoll(optarg));
+      break;
+    case 'v':
+      ElectrosenseContext::getInstance()->setMode(strdup(optarg));
+      break;
     default:
       usage(argv[0]);
     }
   }
 
   // Non-option arguments
-  if (optind + 2 != argc) {
+  if (optind + 4 != argc) {
     usage(argv[0]);
 
   } else {
     ElectrosenseContext::getInstance()->setMinFreq(atoll(argv[optind]));
     ElectrosenseContext::getInstance()->setMaxFreq(atoll(argv[optind + 1]));
+    ElectrosenseContext::getInstance()->setAttackFreq1(atoll(argv[optind + 2]));
+    ElectrosenseContext::getInstance()->setAttackFreq2(atoll(argv[optind + 3]));
+
   }
 }
 

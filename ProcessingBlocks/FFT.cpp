@@ -55,64 +55,75 @@ void FFT::run() {
     throw std::logic_error("Queue[IN|OUT] are NULL!");
   }
 
+  //----------------------------------------------------------------------------------------------------------
+  // General setup (variables that are used by multiples)
+  //---------------------
+  int current_frequency = 0;
 
   //----------------------------------------------------------------------------------------------------------
   // REPEAT - Setup
   //---------------------
-  // std::vector<std::complex<float>> repeat_source_segment;
+  std::vector<std::complex<float>> repeat_source_segment;
 
   //----------------------------------------------------------------------------------------------------------
   // MIMIC - Setup
   //---------------------
-  // int current_frequency = 0;
-  // std::vector<std::complex<float>> mimic_source_segment;
+  std::vector<std::complex<float>> mimic_source_segment;
 
   //----------------------------------------------------------------------------------------------------------
   // CONFUSION/EXCHANGE/DISORDER - Setup
   //---------------------
-  // int current_frequency = 0;
-  // std::vector<std::vector<std::complex<float>>> confusion_source_segment_1;
-  // std::vector<std::vector<std::complex<float>>> confusion_source_segment_2;
+  std::vector<std::complex<float>> confusion_source_segment_1;
+  std::vector<std::complex<float>> confusion_source_segment_2;
 
   //----------------------------------------------------------------------------------------------------------
   // NOISE - Setup
   //---------------------
-  //  std::uniform_real_distribution<double> dist(0, 10);
-  //  std::random_device urandom("/dev/urandom");
-
-  //-------------------------------------------------------------------------------
 
   //----------------------------------------------------------------------------------------------------------
   // SPOOF  - Setup
   //---------------------
-  // std::uniform_real_distribution<double> dist(0, 20);
-  // std::random_device urandom("/dev/urandom");
-  // int current_frequency = 0;
-  // std::vector<std::vector<std::complex<float>>>  spoof_source_segment;
-
-  //-------------------------------------------------------------------------------
+  std::vector<std::complex<float>>  spoof_source_segment;
 
   //----------------------------------------------------------------------------------------------------------
   // FREEZE - Setup
-  //---------------------
-  // std::vector<std::vector<std::complex<float>>> freeze_source_segment;
-  // int current_frequency = 0;
-  // bool freeze = false;
-
-  //-------------------------------------------------------------------------------
+  //--------------------- 
+  std::vector<std::complex<float>> freeze_source_segment;
+  bool freeze = false;
 
   //----------------------------------------------------------------------------------------------------------
   // DELAY - Setup
   //---------------------
-  //  int affected_frequencies = 0;
-  //  int current_frequency = 0;
-  //  int current_iteration = 0;
-  //  int delay = 10;
-  //  bool init = true;
-  //  bool full = false;
-  //  std::vector<std::vector<std::vector<std::complex<float>>>> delay_source_segment;
-  //  std::vector<std::complex<float>> tmp_iq_vector;
+   int affected_frequencies = 0;
+   int current_iteration = 0;
+   int delay = 10;
+   bool init = true;
+   bool full = false;
+   std::vector<std::vector<std::vector<std::complex<float>>>> delay_source_segment;
+   std::vector<std::complex<float>> tmp_signal_vector;
   //-------------------------------------------------------------------------------
+
+  const std::string mode = ElectrosenseContext::getInstance()->getMode();
+
+  // Debugging print to command line
+  if (ElectrosenseContext::getInstance()->getModifiedComponent().compare("FFT") == 0){
+    if (mode.compare("normal") == 0)
+      std::cout << std::endl << "DEBUG: Running FFT with mode normal" << std::endl << std::endl;
+    else if (mode.compare("repeat") == 0)
+      std::cout << std::endl << "DEBUG: Running FFT with mode repeat" << std::endl << std::endl;
+    else if (mode.compare("mimic") == 0)
+      std::cout << std::endl << "DEBUG: Running FFT with mode mimic" << std::endl << std::endl;
+    else if (mode.compare("confusion") == 0)
+      std::cout << std::endl << "DEBUG: Running FFT with mode confusion" << std::endl << std::endl;
+    else if (mode.compare("noise") == 0)
+      std::cout << std::endl << "DEBUG: Running FFT with mode noise" << std::endl << std::endl;
+    else if (mode.compare("spoof") == 0)
+      std::cout << std::endl << "DEBUG: Running FFT with mode spoof" << std::endl << std::endl;
+    else if (mode.compare("freeze") == 0)
+      std::cout << std::endl << "DEBUG: Running FFT with mode freeze" << std::endl << std::endl;
+    else if (mode.compare("delay") == 0)
+      std::cout << std::endl << "DEBUG: Running FFT with mode delay" << std::endl << std::endl;
+    }
 
   while (mRunning) {
 
@@ -122,16 +133,28 @@ void FFT::run() {
 
       if (mFFTBatch.size() == fft_batch_len) { // fft_batch_len {
 
-        // Wait for FFT_batch segments to prepare data and send to the CPU
+        if (ElectrosenseContext::getInstance()->getModifiedComponent().compare("FFT") == 0){
+          // Wait for FFT_batch segments to prepare data and send to the CPU
+          if (mode.compare("normal") == 0)
+              ComputeFFT_normal(mFFTBatch);
+          else if (mode.compare("repeat") == 0)
+              ComputeFFT_repeat(mFFTBatch, repeat_source_segment);
+          else if (mode.compare("mimic") == 0)
+              ComputeFFT_mimic(mFFTBatch, current_frequency, mimic_source_segment);
+          else if (mode.compare("confusion") == 0)
+              ComputeFFT_confusion(mFFTBatch, current_frequency, confusion_source_segment_1, confusion_source_segment_2);
+          else if (mode.compare("noise") == 0)
+              ComputeFFT_noise(mFFTBatch);
+          else if (mode.compare("spoof") == 0)
+              ComputeFFT_spoof(mFFTBatch, current_frequency, spoof_source_segment);
+          else if (mode.compare("freeze") == 0)
+              ComputeFFT_freeze(mFFTBatch, current_frequency, freeze, freeze_source_segment);
+          else if (mode.compare("delay") == 0)
+              ComputeFFT_delay(mFFTBatch, current_frequency, affected_frequencies, current_iteration, delay, init, full, delay_source_segment, tmp_signal_vector);
+          } else {
+            ComputeFFT_normal(mFFTBatch);
+          }
 
-        //ComputeFFT_normal(mFFTBatch);
-        //ComputeFFT_repeat(mFFTBatch, repeat_source_segment);
-        ComputeFFT_mimic(mFFTBatch, current_frequency, mimic_source_segment);
-        //ComputeFFT_confusion(mFFTBatch);
-        //ComputeFFT_noise(mFFTBatch);
-        //ComputeFFT_spoof(mFFTBatch);
-        //ComputeFFT_freeze(mFFTBatch);
-        //ComputeFFT_delay(mFFTBatch);
 
         for (unsigned int i = 0; i < mFFTBatch.size(); i++)
           mQueueOut->enqueue(mFFTBatch[i]);
@@ -166,9 +189,6 @@ void FFT::ComputeFFT_normal(std::vector<SpectrumSegment *> &segments) {
     fft_execute(q_f);
     fft_shift(signal_freq, signal_len);
 
-    //  Start -------------------------------------------------------------------------------------------------
-    //  End -------------------------------------------------------------------------------------------------
-
     // std::cout << "Testing FFT for segment" << i << " with signal_len " << signal_len << " and signal_freq "<< signal_freq << std::endl;
     // std::cout << "Current valuesin signal_freq: ";
     // for(std::complex<float> i : signal_freq) 
@@ -192,12 +212,11 @@ void FFT::ComputeFFT_normal(std::vector<SpectrumSegment *> &segments) {
 void FFT::ComputeFFT_repeat(std::vector<SpectrumSegment *> &segments, std::vector<std::complex<float>> &repeat_source_segment) {
 
   //----------------------------------------------------------------------------------------------------------
-  // GLOBAL - Setup
+  // Setup
   //---------------------
-  uint64_t attacked_freq_1 = 90000000;
-  uint64_t attack_bw = 1000000;
-  uint64_t attacked_freq_2 = 100000000;
-  uint64_t attack_impact = 3;
+  uint64_t attack_freq_1 = ElectrosenseContext::getInstance()->getAttackFreq1();
+  uint64_t attack_bw = ElectrosenseContext::getInstance()->getBandwidth();
+  uint64_t attack_impact = ElectrosenseContext::getInstance()->getFFTAttackImpact();
 
   unsigned int signal_len =
       1 << ElectrosenseContext::getInstance()->getLog2FftSize();
@@ -217,10 +236,10 @@ void FFT::ComputeFFT_repeat(std::vector<SpectrumSegment *> &segments, std::vecto
     struct timespec current_time;
     clock_gettime(CLOCK_REALTIME, &current_time);
 
-    //  Start -------------------------------------------------------------------------------------------------
+    // //  Start -------------------------------------------------------------------------------------------------
 
     //-- Indicates the frequency segment affected by the attack
-    if (segments[i]->getCenterFrequency()  >= attacked_freq_1 && segments[i]->getCenterFrequency()  <= attacked_freq_1 + attack_bw ) {
+    if (segments[i]->getCenterFrequency()  >= attack_freq_1 && segments[i]->getCenterFrequency()  <= attack_freq_1 + attack_bw ) {
 
       //-- If the vector with the PSD values already exists, it copies its content to the segment to be sent
       if (!repeat_source_segment.empty()) {
@@ -237,7 +256,7 @@ void FFT::ComputeFFT_repeat(std::vector<SpectrumSegment *> &segments, std::vecto
       }
     }
 
-    //  End -------------------------------------------------------------------------------------------------
+    // //  End -------------------------------------------------------------------------------------------------
 
 
       segments[i]->getIQSamplesFreq().assign(signal_freq,
@@ -254,12 +273,12 @@ void FFT::ComputeFFT_repeat(std::vector<SpectrumSegment *> &segments, std::vecto
 void FFT::ComputeFFT_mimic(std::vector<SpectrumSegment *> &segments, int &current_frequency,  std::vector<std::complex<float>> &mimic_source_segment) {
   
   //----------------------------------------------------------------------------------------------------------
-  // GLOBAL - Setup
+  // Setup
   //---------------------
-  uint64_t attacked_freq_1 = 90000000;
-  uint64_t attack_bw = 1000000;
-  uint64_t attacked_freq_2 = 100000000;
-  uint64_t attack_impact = 3;
+  uint64_t attack_freq_1 = ElectrosenseContext::getInstance()->getAttackFreq1();
+  uint64_t attack_freq_2 = ElectrosenseContext::getInstance()->getAttackFreq2();
+  uint64_t attack_bw = ElectrosenseContext::getInstance()->getBandwidth();
+  uint64_t attack_impact = ElectrosenseContext::getInstance()->getFFTAttackImpact();
 
 
   unsigned int signal_len =
@@ -280,35 +299,35 @@ void FFT::ComputeFFT_mimic(std::vector<SpectrumSegment *> &segments, int &curren
     struct timespec current_time;
     clock_gettime(CLOCK_REALTIME, &current_time);
 
-    //  Start -------------------------------------------------------------------------------------------------
+    // //  Start -------------------------------------------------------------------------------------------------
 
-    std::cout << "mimic_source_segment is now " << mimic_source_segment.size() << " big" << std::endl;
-        //--The segment that needs to be copied
-        if (segments[i]->getCenterFrequency() > attacked_freq_1 && segments[i]->getCenterFrequency() < attacked_freq_1 + attack_bw ) {
-          for(unsigned int j = 0; j < attack_impact; j++){
-              mimic_source_segment.push_back(signal_freq[j]);
-          }
-        }
-        //--The segment the copied PSD values are pasted into
-        else if (segments[i]->getCenterFrequency() > attacked_freq_2 && segments[i]->getCenterFrequency() < attacked_freq_2 + attack_bw) {
-          std::cout << "Current values in mimic_source_signal: ";
-          for(std::complex<float> i : mimic_source_segment) 
-            std::cout << i << ", " << std::endl;
-          std::cout << std::endl;
-          for(unsigned int j = 0; j < attack_impact; j++){
-            std::cout << "Copied " << j+current_frequency*attack_impact << " position in mimic_source_segment" << std::endl;
-            uint64_t position = j+current_frequency*attack_impact;
-            signal_freq[j] = mimic_source_segment[position];
-          }
-          current_frequency++;
-        }
+    // std::cout << "mimic_source_segment is now " << mimic_source_segment.size() << " big" << std::endl;
+    //--The segment that needs to be copied
+    if (segments[i]->getCenterFrequency() > attack_freq_1 && segments[i]->getCenterFrequency() < attack_freq_1 + attack_bw ) {
+      for(unsigned int j = 0; j < attack_impact; j++){
+          mimic_source_segment.push_back(signal_freq[j]);
+      }
+    }
+    //--The segment the copied PSD values are pasted into
+    else if (segments[i]->getCenterFrequency() > attack_freq_2 && segments[i]->getCenterFrequency() < attack_freq_2 + attack_bw) {
+      // std::cout << "Current values in mimic_source_signal: ";
+      // for(std::complex<float> i : mimic_source_segment) 
+      //   std::cout << i << ", " << std::endl;
+      // std::cout << std::endl;
+      for(unsigned int j = 0; j < attack_impact; j++){
+        // std::cout << "Copied " << j+current_frequency*attack_impact << " position in mimic_source_segment" << std::endl;
+        uint64_t position = j+current_frequency*attack_impact;
+        signal_freq[j] = mimic_source_segment[position];
+      }
+      current_frequency++;
+    }
 
-        if (segments[i]->getCenterFrequency() > attacked_freq_2 + attack_bw) {
-          mimic_source_segment.clear();
-          current_frequency = 0;
-        }
+    if (segments[i]->getCenterFrequency() > attack_freq_2 + attack_bw) {
+      mimic_source_segment.clear();
+      current_frequency = 0;
+    }
 
-    //  End -------------------------------------------------------------------------------------------------
+    // //  End -------------------------------------------------------------------------------------------------
 
 
       segments[i]->getIQSamplesFreq().assign(signal_freq,
@@ -318,10 +337,20 @@ void FFT::ComputeFFT_mimic(std::vector<SpectrumSegment *> &segments, int &curren
   }
 }
 
+
 //----------------------------------------------------------------------------------------------------------
 //  Confusion
 //----------------------------------------------------------------------------------------------------------
-void FFT::ComputeFFT_confusion(std::vector<SpectrumSegment *> &segments) {
+void FFT::ComputeFFT_confusion(std::vector<SpectrumSegment *> &segments, int &current_frequency, std::vector<std::complex<float>> &confusion_source_segment_1, std::vector<std::complex<float>> &confusion_source_segment_2) {
+
+  //----------------------------------------------------------------------------------------------------------
+  // Setup
+  //---------------------
+  uint64_t attack_freq_1 = ElectrosenseContext::getInstance()->getAttackFreq1();
+  uint64_t attack_freq_2 = ElectrosenseContext::getInstance()->getAttackFreq2();
+  uint64_t attack_bw = ElectrosenseContext::getInstance()->getBandwidth();
+  uint64_t attack_impact = ElectrosenseContext::getInstance()->getFFTAttackImpact();
+
 
   unsigned int signal_len =
       1 << ElectrosenseContext::getInstance()->getLog2FftSize();
@@ -339,49 +368,39 @@ void FFT::ComputeFFT_confusion(std::vector<SpectrumSegment *> &segments) {
 
     //  Start -------------------------------------------------------------------------------------------------
     
-      //-- The first frequency segment that needs to be exchanged
-      if (segments[i]->getCenterFrequency() > attacked_freq_1 && segments[i]->getCenterFrequency() < attacked_freq_1 + attack_bw ) {
-        //-- Save the sensed PSD values in temporary variable
+    //--The segment that needs to be copied
+    if (segments[i]->getCenterFrequency() > attack_freq_1 && segments[i]->getCenterFrequency() < attack_freq_1 + attack_bw ) {
+      for(unsigned int j = 0; j < attack_impact; j++){
+        confusion_source_segment_1.push_back(signal_freq[j]);
+      }
+      if (!confusion_source_segment_2.empty()) {
         for(unsigned int j = 0; j < attack_impact; j++){
-            confusion_source_segment_1.push_back(signal_freq[j]);
-        }
-        //-- overwrite the sensed PSD values with the second segment if it already exists
-        if (!confusion_source_segment_2.empty()) {
-          iq_vector.clear();
-          for(unsigned int j = 0; j < attack_impact; j++){
-              confusion_source_segment_1.push_back(signal_freq[j]);
-          }
-          if (i == ElectrosenseContext::getInstance()->getAvgFactor() - 1) {
-            current_frequency++;
-          }
+          uint64_t position = j+current_frequency*attack_impact;
+          signal_freq[j] = confusion_source_segment_2[position];
         }
       }
+      current_frequency++;
+    }
+    
+    else if (current_frequency != 0 && segments[i]->getCenterFrequency() > attack_freq_1 + attack_bw  && segments[i]->getCenterFrequency() < attack_freq_2 ) {
+      confusion_source_segment_2.clear();
+      current_frequency = 0;
+    }
 
-      if (current_frequency != 0 && segments[i]->getCenterFrequency() > attacked_freq_1 + attack_bw  && segments[i]->getCenterFrequency() < attacked_freq_2 ) {
-        confusion_source_segment_2.clear();
-        current_frequency = 0;
+    else if (segments[i]->getCenterFrequency() > attack_freq_2 && segments[i]->getCenterFrequency() < attack_freq_2 + attack_bw ) {
+      for(unsigned int j = 0; j < attack_impact; j++){
+        confusion_source_segment_2.push_back(signal_freq[j]);
+        uint64_t position = j+current_frequency*attack_impact;
+        signal_freq[j] = confusion_source_segment_1[position];
       }
+      current_frequency++;
+    }
 
-      //-- The second frequency segment that needs to be exchanged
-      if (segments[i]->getCenterFrequency() > attacked_freq_2 && segments[i]->getCenterFrequency() < attacked_freq_2 + attack_bw) {
-        //-- Save the sensed PSD values in temporary variable
-        if (i == 0){
-          confusion_source_segment_2.push_back(iq_vector);
-        }
-        //-- overwrite the sensed PSD values with the first segment
-        iq_vector.clear();
-        for(unsigned int i = 0; i < confusion_source_segment_1[current_frequency].size(); i++) {
-          iq_vector.push_back(confusion_source_segment_1[current_frequency][i]);
-        }
-        if (i == ElectrosenseContext::getInstance()->getAvgFactor() - 1) {
-          current_frequency++;
-        }
-      }
+    else if (current_frequency != 0 && segments[i]->getCenterFrequency() > attack_freq_2 + attack_bw) {
+      confusion_source_segment_1.clear();
+      current_frequency = 0;
+    }
 
-      if (current_frequency != 0 && center_freq > attacked_freq_2 + attack_bw) {
-        confusion_source_segment_1.clear();
-        current_frequency = 0;
-      }
 
     //  End -------------------------------------------------------------------------------------------------
 
@@ -401,6 +420,16 @@ void FFT::ComputeFFT_confusion(std::vector<SpectrumSegment *> &segments) {
 //----------------------------------------------------------------------------------------------------------
 void FFT::ComputeFFT_noise(std::vector<SpectrumSegment *> &segments) {
 
+  //----------------------------------------------------------------------------------------------------------
+  // Setup
+  //---------------------
+  std::uniform_real_distribution<double> dist(0, 10);
+  std::random_device urandom("/dev/urandom");
+  uint64_t attack_freq_1 = ElectrosenseContext::getInstance()->getAttackFreq1();
+  uint64_t attack_bw = ElectrosenseContext::getInstance()->getBandwidth();
+  uint64_t attack_impact = ElectrosenseContext::getInstance()->getFFTAttackImpact();
+
+
   unsigned int signal_len =
       1 << ElectrosenseContext::getInstance()->getLog2FftSize();
   int flags = 0;
@@ -415,20 +444,17 @@ void FFT::ComputeFFT_noise(std::vector<SpectrumSegment *> &segments) {
     fft_execute(q_f);
     fft_shift(signal_freq, signal_len);
 
-    //  Start -------------------------------------------------------------------------------------------------
+    // //  Start -------------------------------------------------------------------------------------------------
       
     //-- Indicates the frequency segments affected by the attack
-    if (segments[i]->getCenterFrequency() >= attacked_freq_1 && segments[i]->getCenterFrequency() <= attacked_freq_1 + attack_bw){
-
-      //-- Adds random noise to j positions of the selected segments -- 3 when the attack impact is 20khz, and 25 when it is 200khz 
+    if (segments[i]->getCenterFrequency() >= attack_freq_1 && segments[i]->getCenterFrequency() <= attack_freq_1 + attack_bw){
       for (unsigned int j=0; j < attack_impact; j++){
-        float randomValue = dist(urandom);
-        std::complex<float> z1 = randomValue * 1i;
-        signal_freq[j] = signal_freq[j] + z1;
+        std::complex<float> randomValue = dist(urandom);
+        signal_freq[j] = signal_freq[j] + randomValue;
       }
     }
 
-    //  End -------------------------------------------------------------------------------------------------
+    // //  End -------------------------------------------------------------------------------------------------
 
     struct timespec current_time;
     clock_gettime(CLOCK_REALTIME, &current_time);
@@ -444,7 +470,18 @@ void FFT::ComputeFFT_noise(std::vector<SpectrumSegment *> &segments) {
 //----------------------------------------------------------------------------------------------------------
 //  Spoof
 //----------------------------------------------------------------------------------------------------------
-void FFT::ComputeFFT_spoof(std::vector<SpectrumSegment *> &segments) {
+void FFT::ComputeFFT_spoof(std::vector<SpectrumSegment *> &segments, int &current_frequency, std::vector<std::complex<float>> &spoof_source_segment) {
+
+  //----------------------------------------------------------------------------------------------------------
+  // Setup
+  //---------------------
+  std::uniform_real_distribution<double> dist(0, 10);
+  std::random_device urandom("/dev/urandom");
+  uint64_t attack_freq_1 = ElectrosenseContext::getInstance()->getAttackFreq1();
+  uint64_t attack_freq_2 = ElectrosenseContext::getInstance()->getAttackFreq2();
+  uint64_t attack_bw = ElectrosenseContext::getInstance()->getBandwidth();
+  uint64_t attack_impact = ElectrosenseContext::getInstance()->getFFTAttackImpact();
+
 
   unsigned int signal_len =
       1 << ElectrosenseContext::getInstance()->getLog2FftSize();
@@ -460,29 +497,30 @@ void FFT::ComputeFFT_spoof(std::vector<SpectrumSegment *> &segments) {
     fft_execute(q_f);
     fft_shift(signal_freq, signal_len);
 
-    //  Start -------------------------------------------------------------------------------------------------
+    // //  Start -------------------------------------------------------------------------------------------------
 
     //--The segment that needs to be copied
-    if (segments[i]->getCenterFrequency() > attacked_freq_1 && segments[i]->getCenterFrequency() < attacked_freq_1 + attack_bw ) {
+    if (segments[i]->getCenterFrequency() > attack_freq_1 && segments[i]->getCenterFrequency() < attack_freq_1 + attack_bw ) {
       for(unsigned int j = 0; j < attack_impact; j++){
-          mimic_source_segment.push_back(signal_freq[j]);
+          spoof_source_segment.push_back(signal_freq[j]);
       }
     }
     //--The segment the copied PSD values are pasted into
-    else if (segments[i]->getCenterFrequency() > attacked_freq_2 && segments[i]->getCenterFrequency() < attacked_freq_2 + attack_bw) {
+    else if (segments[i]->getCenterFrequency() > attack_freq_2 && segments[i]->getCenterFrequency() < attack_freq_2 + attack_bw) {
       for(unsigned int j = 0; j < attack_impact; j++){
-        float randomValue = dist(urandom);
-        std::complex<float> z1 = randomValue * 1i;
-        signal_freq[j] = mimic_source_segment[j] + z1;
+        uint64_t position = j+current_frequency*attack_impact;
+        std::complex<float> randomValue = dist(urandom);
+        signal_freq[j] = spoof_source_segment[position] + randomValue;
       }
+      current_frequency++;
     }
 
-    if (segments[i]->getCenterFrequency() > attacked_freq_2 + attack_bw) {
-      mimic_source_segment.clear();
+    if (segments[i]->getCenterFrequency() > attack_freq_2 + attack_bw) {
+      spoof_source_segment.clear();
+      current_frequency = 0;
     }
 
-
-    //  End -------------------------------------------------------------------------------------------------
+    // //  End -------------------------------------------------------------------------------------------------
 
     struct timespec current_time;
     clock_gettime(CLOCK_REALTIME, &current_time);
@@ -498,7 +536,15 @@ void FFT::ComputeFFT_spoof(std::vector<SpectrumSegment *> &segments) {
 //----------------------------------------------------------------------------------------------------------
 //  Freeze
 //----------------------------------------------------------------------------------------------------------
-void FFT::ComputeFFT_freeze(std::vector<SpectrumSegment *> &segments) {
+void FFT::ComputeFFT_freeze(std::vector<SpectrumSegment *> &segments, int &current_frequency, bool &freeze, std::vector<std::complex<float>>  &freeze_source_segment) {
+
+  //----------------------------------------------------------------------------------------------------------
+  // Setup
+  //---------------------
+  uint64_t attack_freq_1 = ElectrosenseContext::getInstance()->getAttackFreq1();
+  uint64_t attack_bw = ElectrosenseContext::getInstance()->getBandwidth();
+  uint64_t attack_impact = ElectrosenseContext::getInstance()->getFFTAttackImpact();
+
 
   unsigned int signal_len =
       1 << ElectrosenseContext::getInstance()->getLog2FftSize();
@@ -514,33 +560,31 @@ void FFT::ComputeFFT_freeze(std::vector<SpectrumSegment *> &segments) {
     fft_execute(q_f);
     fft_shift(signal_freq, signal_len);
 
-    //  Start -------------------------------------------------------------------------------------------------
+    // //  Start -------------------------------------------------------------------------------------------------
 
     //-- Indicates the frequency segment affected by the attack
-    if (segments[i]->getCenterFrequency() > attacked_freq_1 && center_freq < attacked_freq_1 + attack_bw) {
+    if (segments[i]->getCenterFrequency() > attack_freq_1 && segments[i]->getCenterFrequency() < attack_freq_1 + attack_bw) {
         //-- Create the source array on the first iteration
         if (!freeze){
-          if (i == ElectrosenseContext::getInstance()->getAvgFactor() -1){
-            freeze_source_segment.push_back(iq_vector);
+          for(unsigned int j = 0; j < attack_impact; j++){
+              freeze_source_segment.push_back(signal_freq[j]);
           }
         }else{
-          iq_vector.clear();
-          for(unsigned int i = 0; i < freeze_source_segment[current_frequency].size(); i++) {
-            iq_vector.push_back(freeze_source_segment[current_frequency][i]);
+          for(unsigned int j = 0; j < attack_impact; j++){
+            uint64_t position = j+current_frequency*attack_impact;
+            signal_freq[j] = freeze_source_segment[position];
           }
-          if (i == ElectrosenseContext::getInstance()->getAvgFactor() -1) {
-            current_frequency++;
-          }
+          current_frequency++;
         }
       }
 
-      if (!freeze  && center_freq > attacked_freq_1 + attack_bw) {
+      if (!freeze  && segments[i]->getCenterFrequency() > attack_freq_1 + attack_bw) {
         freeze = true;
       }
 
-      if (current_frequency != 0 && center_freq > attacked_freq_1 + attack_bw) current_frequency = 0;
+      if (current_frequency != 0 && segments[i]->getCenterFrequency() > attack_freq_1 + attack_bw) current_frequency = 0;
 
-    //  End -------------------------------------------------------------------------------------------------
+    // //  End -------------------------------------------------------------------------------------------------
 
     struct timespec current_time;
     clock_gettime(CLOCK_REALTIME, &current_time);
@@ -556,7 +600,14 @@ void FFT::ComputeFFT_freeze(std::vector<SpectrumSegment *> &segments) {
 //----------------------------------------------------------------------------------------------------------
 //  Delay
 //----------------------------------------------------------------------------------------------------------
-void FFT::ComputeFFT_delay(std::vector<SpectrumSegment *> &segments) {
+void FFT::ComputeFFT_delay(std::vector<SpectrumSegment *> &segments, int &current_frequency, int &affected_frequencies, int &current_iteration, int &delay, bool &init, bool &full, std::vector<std::vector<std::vector<std::complex<float>>>> &delay_source_segment, std::vector<std::complex<float>> &tmp_signal_vector) {
+
+  //----------------------------------------------------------------------------------------------------------
+  // Setup
+  //---------------------
+  uint64_t attack_freq_1 = ElectrosenseContext::getInstance()->getAttackFreq1();
+  uint64_t attack_bw = ElectrosenseContext::getInstance()->getBandwidth();
+  uint64_t attack_impact = ElectrosenseContext::getInstance()->getFFTAttackImpact();
 
   unsigned int signal_len =
       1 << ElectrosenseContext::getInstance()->getLog2FftSize();
@@ -572,62 +623,67 @@ void FFT::ComputeFFT_delay(std::vector<SpectrumSegment *> &segments) {
     fft_execute(q_f);
     fft_shift(signal_freq, signal_len);
 
-    //  Start -------------------------------------------------------------------------------------------------
-       //-- Indicates the frequency segment affected by the attack
-       if (center_freq > attacked_freq_1 && center_freq < attacked_freq_1 + attack_bw) {
-         //-- Init phase: create 3d array with frequencies x delay x values
-         if (init && i == 0){
-           std::vector<std::vector<std::complex<float>>> tmp_vector(delay);
-           tmp_vector.insert(tmp_vector.begin(), iq_vector);
-           delay_source_segment.push_back(tmp_vector);
-           affected_frequencies++;
-         }
-         //-- Fill the source array with the current data
-         if (!init && i == 0){
-           //-- If the array is full, save the previous data to a temporary variable
-           if (full){
-             tmp_iq_vector.clear();
-             for(unsigned int i = 0; i < delay_source_segment[current_frequency][current_iteration].size(); i++) {
-               tmp_iq_vector.push_back(delay_source_segment[current_frequency][current_iteration][i]);
-             }
-             delay_source_segment[current_frequency][current_iteration].clear();
-           }
-           for(unsigned int i = 0; i < iq_vector.size(); i++) {
-             delay_source_segment[current_frequency][current_iteration].push_back(iq_vector[i]);
-           }
-           if (full){
-             iq_vector.clear();
-             for(unsigned int i = 0; i < tmp_iq_vector.size(); i++) {
-               iq_vector.push_back(tmp_iq_vector[i]);
-             }
-           }
-         }
-
-         if (!init && i == ElectrosenseContext::getInstance()->getAvgFactor() -1) {
-           current_frequency++;
-         }
-
-          //-- when all frequencies are saved and/or modified go to next iteration
-         if (i == ElectrosenseContext::getInstance()->getAvgFactor() -1 && current_frequency == affected_frequencies) {
-           current_frequency = 0;
-           current_iteration++;
-           //-- when the defined delay is reached, start again
-           if (current_iteration > delay){
-             full = true;
-             current_iteration = 0;
-             current_frequency = 0;
-           }
-         }
-
+    // //  Start -------------------------------------------------------------------------------------------------
+    
+    //-- Indicates the frequency segment affected by the attack
+    if (segments[i]->getCenterFrequency() > attack_freq_1 && segments[i]->getCenterFrequency() < attack_freq_1 + attack_bw) {
+      //-- Init phase: create 3d array with frequencies x delay x values
+      if (init){
+        std::vector<std::vector<std::complex<float>>> tmp_vector(delay);
+        std::vector<std::complex<float>> tmp_vector_2;
+        for(unsigned int j = 0; j < attack_impact; j++){
+          tmp_vector_2.push_back(signal_freq[j]);
         }
+        tmp_vector.insert(tmp_vector.begin(), tmp_vector_2);
+        delay_source_segment.push_back(tmp_vector);
+        affected_frequencies++;
+      }
+      //-- Fill the source array with the current data
+      if (!init){
+        //-- If the array is full, save the previous data to a temporary variable
+        if (full){
+          for(unsigned int i = 0; i < delay_source_segment[current_frequency][current_iteration].size(); i++) {
+            tmp_signal_vector.push_back(delay_source_segment[current_frequency][current_iteration][i]);
+          }
+          delay_source_segment[current_frequency][current_iteration].clear();
+        }
+        for(unsigned int j = 0; j < attack_impact; j++){
+            delay_source_segment[current_frequency][current_iteration].push_back(signal_freq[j]);
+        }
+        if (full){
+          for(unsigned int j = 0; j < attack_impact; j++){
+            uint64_t position = j+current_frequency*attack_impact;
+            signal_freq[j] = tmp_signal_vector[position];
+          }
+          current_frequency++;
+        }
+      }
 
-       //-- when init is done for all frequencies, change to "normal" mode
-       if (init && center_freq > attacked_freq_1 + attack_bw){
-         init = false;
-         current_iteration++;
-       }
+      if (!init) {
+        current_frequency++;
+      }
 
-    //  End -------------------------------------------------------------------------------------------------
+      //-- when all frequencies are saved and/or modified go to next iteration
+      if (current_frequency == affected_frequencies) {
+        current_frequency = 0;
+        current_iteration++;
+        //-- when the defined delay is reached, start again
+        if (current_iteration > delay){
+          full = true;
+          current_iteration = 0;
+          current_frequency = 0;
+        }
+      }
+
+    }
+
+    //-- when init is done for all frequencies, change to "normal" mode
+    if (init && segments[i]->getCenterFrequency() > attack_freq_1 + attack_bw){
+      init = false;
+      current_iteration++;
+    }
+
+    // //  End -------------------------------------------------------------------------------------------------
 
     struct timespec current_time;
     clock_gettime(CLOCK_REALTIME, &current_time);

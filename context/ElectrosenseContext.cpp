@@ -78,7 +78,23 @@ void ElectrosenseContext::print() {
       std::cout << "Output type: " << (mOutputType ? "FLOAT" : "BYTE") << std::endl;
   }
 
+  std::cout << "---- SSDF attack settings -------------------------------------------------------- " << std::endl;
+  std::cout << "Current mode: " << getMode() << std::endl;
+  if(getMode().compare("normal") != 0){
+    std::cout << "First attacked segment: " << getAttackFreq1() << std::endl;
+    std::cout << "Second attacked segment: " << getAttackFreq2() << std::endl;
+    std::cout << "SSDF bandwidth: " << getBandwidth() << std::endl;
+    std::cout << "Modified component is therefore the " << getModifiedComponent();
+    if(getModifiedComponent().compare("FFT") == 0)
+      std::cout << " with an attack impact of " << getFFTAttackImpact();
+    std:: cout << std::endl;
+  }
+  std::cout << "---- SSDF attack settings -------------------------------------------------------- " << std::endl;
+
+
   std::cout << "---- End Config ---- " << std::endl << std::endl;
+
+
 }
 
 std::string ElectrosenseContext::getPipeline() const { return mPipeline; }
@@ -337,4 +353,43 @@ const int &ElectrosenseContext::getBiasTee() const { return mBiasTee; }
 
 void ElectrosenseContext::setBiasTee(int bt_enable) {
   mBiasTee = bt_enable;
-};
+}
+
+// SSDF Attacks
+const std::string &ElectrosenseContext::getMode() const { return mMode; }
+
+void ElectrosenseContext::setMode(const std::string &mode) {
+  mMode = mode;
+}
+
+uint64_t ElectrosenseContext::getBandwidth() const { return mBandwidth; }
+
+void ElectrosenseContext::setBandwidth(uint64_t bandwidth) { 
+  mBandwidth = bandwidth; 
+  if (bandwidth>2000000)
+   setModifiedComponent("RTLSDR");
+  else {
+    setModifiedComponent("FFT");
+    const double impact = (double)256/(2000000/bandwidth);
+    setFFTAttackImpact((int)(impact+0.5));
+  }
+}
+
+uint64_t ElectrosenseContext::getAttackFreq1() const { return mAttackFreq1; }
+
+void ElectrosenseContext::setAttackFreq1(uint64_t attackFreq1) { mAttackFreq1 = attackFreq1; }
+
+uint64_t ElectrosenseContext::getAttackFreq2() const { return mAttackFreq2; }
+
+void ElectrosenseContext::setAttackFreq2(uint64_t attackFreq2) { mAttackFreq2 = attackFreq2; }
+
+const std::string &ElectrosenseContext::getModifiedComponent() const { return mModifiedComponent; }
+
+void ElectrosenseContext::setModifiedComponent(const std::string &modifiedComponent) {
+  mModifiedComponent = modifiedComponent;
+}
+
+unsigned int ElectrosenseContext::getFFTAttackImpact() const { return FFTAttackImpact; }
+
+void ElectrosenseContext::setFFTAttackImpact(unsigned int mFFTAttackImpact) { FFTAttackImpact = mFFTAttackImpact; }
+;

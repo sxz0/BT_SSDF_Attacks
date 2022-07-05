@@ -472,9 +472,45 @@ void rtlsdrDriver::run() {
 
   mRunning = true;
 
+  const std::string mode = ElectrosenseContext::getInstance()->getMode();
+  
   if (ElectrosenseContext::getInstance()->getPipeline().compare("PSD") == 0) {
-    std::cout << "rtlsdrDriver: SyncSampling ..... " << std::endl;
-    SyncSampling();
+    if (ElectrosenseContext::getInstance()->getModifiedComponent().compare("RTLSDR") == 0){
+      if (mode.compare("normal") == 0) {
+        std::cout << std::endl << "DEBUG: Running RTLSDR with mode normal" << std::endl << std::endl;
+        SyncSampling_normal();
+      }
+      else if (mode.compare("repeat") == 0) {
+        std::cout << std::endl << "DEBUG: Running RTLSDR with mode repeat" << std::endl << std::endl;
+        SyncSampling_repeat();
+      }
+      else if (mode.compare("mimic") == 0){
+        std::cout << std::endl << "DEBUG: Running RTLSDR with mode mimic" << std::endl << std::endl;
+        SyncSampling_mimic();
+      }
+      else if (mode.compare("confusion") == 0){
+        std::cout << std::endl << "DEBUG: Running RTLSDR with mode confusion" << std::endl << std::endl;
+        SyncSampling_confusion();
+      }
+      else if (mode.compare("noise") == 0){
+        std::cout << std::endl << "DEBUG: Running RTLSDR with mode noise" << std::endl << std::endl;
+        SyncSampling_noise();
+      }
+      else if (mode.compare("spoof") == 0){
+        std::cout << std::endl << "DEBUG: Running RTLSDR with mode spoof" << std::endl << std::endl;
+        SyncSampling_spoof();
+      }
+      else if (mode.compare("freeze") == 0){
+        std::cout << std::endl << "DEBUG: Running RTLSDR with mode freeze" << std::endl << std::endl;
+        SyncSampling_freeze();
+      }
+      else if (mode.compare("delay") == 0){
+        std::cout << std::endl << "DEBUG: Running RTLSDR with mode delay" << std::endl << std::endl;
+        SyncSampling_delay();
+      }
+    } else{
+      SyncSampling_normal();
+    }
 
   } else {
 
@@ -538,7 +574,7 @@ void rtlsdrDriver::run() {
   mRunning = false;
 }
 
-void rtlsdrDriver::SyncSampling() {
+void rtlsdrDriver::SyncSampling_normal() {
 
   const int BULK_TRANSFER_MULTIPLE = 512;
 
@@ -552,157 +588,36 @@ void rtlsdrDriver::SyncSampling() {
   uint8_t *iq_buf = NULL;
   bool direct_sampling = true;
 
-  //----------------------------------------------------------------------------------------------------------
-  // GLOBAL - Setup
-  //---------------------
-  // uint64_t attacked_freq_1 = 380000000;
-  // uint64_t attack_bw = 20000000;
-  // uint64_t attacked_freq_2 = 420000000;
+while (mRunning) {
 
-  //----------------------------------------------------------------------------------------------------------
-  // REPEAT - Setup
-  //---------------------
-  // std::vector<std::complex<float>> repeat_source_segment;
+  // Introduce here the concept of segment per band (before jumping).
 
-  //----------------------------------------------------------------------------------------------------------
-  // MIMIC - Setup
-  //---------------------
-  // int current_frequency = 0;
-  // std::vector<std::vector<std::complex<float>>>  mimic_source_segment;
+  center_freq = mSeqHopping->nextHop();
+  mustInvert = false;
+  // std::cout << "Currently sampling with center frequency: " << center_freq
+  //       << std::endl;
 
-  //----------------------------------------------------------------------------------------------------------
-  // CONFUSION/EXCHANGE/DISORDER - Setup
-  //---------------------
-  // int current_frequency = 0;
-  // std::vector<std::vector<std::complex<float>>> confusion_source_segment_1;
-  // std::vector<std::vector<std::complex<float>>> confusion_source_segment_2;
+  if (previous_freq != center_freq) {
+    previous_freq = center_freq;
 
-  //----------------------------------------------------------------------------------------------------------
-  // NOISE - Setup
-  //---------------------
-  // std::complex<float> randomValue = rand() % 5 + 5;
+    // RTL-SDR as proxy of the down-converter
+    if (mConverterEnabled) {
 
-  //-------------------------------------------------------------------------------
+      if (!converterTune(&mConverterDriver, center_freq / 1e3, &proxy_freq,
+                          &mustInvert)) {
+        mRunning = false;
+        throw std::logic_error("Failed to converterTune");
+      }
+        // printf("Tuning to %llu Hz, receiving on %llu kHz\n", center_freq,
+      // proxy_freq);
 
-  //----------------------------------------------------------------------------------------------------------
-  // SPOOF  - Setup
-  //---------------------
-  // std::uniform_real_distribution<double> dist(0, 20);
-  // std::random_device urandom("/dev/urandom");
-  // int current_frequency = 0;
-  // std::vector<std::vector<std::complex<float>>>  spoof_source_segment;
+      if (previous_proxy_freq != proxy_freq) {
 
-  //-------------------------------------------------------------------------------
+        previous_proxy_freq = proxy_freq;
 
-  //----------------------------------------------------------------------------------------------------------
-  // FREEZE - Setup
-  //---------------------
-  // std::vector<std::vector<std::complex<float>>> freeze_source_segment;
-  // int current_frequency = 0;
-  // bool freeze = false;
-
-  //-------------------------------------------------------------------------------
-
-  //----------------------------------------------------------------------------------------------------------
-  // DELAY - Setup
-  //---------------------
-  //  int affected_frequencies = 0;
-  //  int current_frequency = 0;
-  //  int current_iteration = 0;
-  //  int delay = 10;
-  //  bool init = true;
-  //  bool full = false;
-  //  std::vector<std::vector<std::vector<std::complex<float>>>> delay_source_segment;
-  //  std::vector<std::complex<float>> tmp_iq_vector;
-  //-------------------------------------------------------------------------------
-
-  while (mRunning) {
-
-    // Introduce here the concept of segment per band (before jumping).
-
-    center_freq = mSeqHopping->nextHop();
-    mustInvert = false;
-    // std::cout << "Currently sampling with center frequency: " << center_freq
-    //       << std::endl;
-
-    if (previous_freq != center_freq) {
-      previous_freq = center_freq;
-
-      // RTL-SDR as proxy of the down-converter
-      if (mConverterEnabled) {
-
-        if (!converterTune(&mConverterDriver, center_freq / 1e3, &proxy_freq,
-                           &mustInvert)) {
-          mRunning = false;
-          throw std::logic_error("Failed to converterTune");
-        }
-         // printf("Tuning to %llu Hz, receiving on %llu kHz\n", center_freq,
-        // proxy_freq);
-
-        if (previous_proxy_freq != proxy_freq) {
-
-          previous_proxy_freq = proxy_freq;
-
-          int r = rtlsdr_set_center_freq(mDevice, proxy_freq * 1e3);
-          if (r != 0) {
-            std::cerr << "Error: unable to set center frequency: "<< proxy_freq * 1e3 << std::endl;
-            continue;
-          }
-
-          // Reset the buffer
-          if (rtlsdr_reset_buffer(mDevice) < 0) {
-            std::cerr << "Error: unable to reset RTLSDR buffer" << std::endl;
-            mRunning = false;
-          }
-        }
-
-      // Native RTL-SDR
-      } else {
-
-          // Direct sampling
-          if (ElectrosenseContext::getInstance()->getDirectSamplingMode() > 0) {
-              if (center_freq >= 24e6 && direct_sampling) {
-
-                  if (rtlsdr_set_direct_sampling(mDevice, 0) < 0) {
-                      std::cerr << "Error: unable to disable direct_sampling" << std::endl;
-                      throw std::logic_error("Fatal Error, unable to disable direct_sampling");
-                  }
-
-                  int gain = ElectrosenseContext::getInstance()->getGain();
-                  rtlsdr_set_agc_mode(mDevice, 0);
-                  int r = rtlsdr_set_tuner_gain_mode(mDevice, 1);
-                  if (r < 0) {
-                      std::cerr << "ERROR: Failed to enable manual gain mode" << std::endl;
-                      throw std::logic_error("Fatal Error");
-                  }
-                  r = rtlsdr_set_tuner_gain(mDevice, gain * 10);
-                  if (r < 0) {
-                      std::cerr << "ERROR: Failed to set manual tuner gain" << std::endl;
-                      throw std::logic_error("Fatal Error");
-                  } else {
-                      int g = rtlsdr_get_tuner_gain(mDevice);
-                      std::cout << "Gain set to " << g / 10 << std::endl;
-                  }
-
-
-                  direct_sampling = false;
-
-              } else if (center_freq < 24e6 && !direct_sampling) {
-
-
-                  if (rtlsdr_set_direct_sampling(mDevice, 2) < 0) {
-                      std::cerr << "Error: unable to set direct_sampling" << std::endl;
-                      throw std::logic_error("Fatal Error, unable to set direct_sampling");
-                  }
-                  rtlsdr_set_tuner_gain_mode(mDevice, 0);
-                  rtlsdr_set_agc_mode(mDevice, 1);
-                  direct_sampling = true;
-              }
-          }
-
-        int r = rtlsdr_set_center_freq(mDevice, center_freq);
+        int r = rtlsdr_set_center_freq(mDevice, proxy_freq * 1e3);
         if (r != 0) {
-          std::cerr << "Error: unable to set center frequency: " << center_freq << std::endl;
+          std::cerr << "Error: unable to set center frequency: "<< proxy_freq * 1e3 << std::endl;
           continue;
         }
 
@@ -712,384 +627,1634 @@ void rtlsdrDriver::SyncSampling() {
           mRunning = false;
         }
       }
-    }
 
-    unsigned int current_fft_size =
-        1 << ElectrosenseContext::getInstance()->getLog2FftSize();
+    // Native RTL-SDR
+    } else {
 
-    if (fft_size != current_fft_size) {
+        // Direct sampling
+        if (ElectrosenseContext::getInstance()->getDirectSamplingMode() > 0) {
+            if (center_freq >= 24e6 && direct_sampling) {
 
-      fft_size = current_fft_size;
+                if (rtlsdr_set_direct_sampling(mDevice, 0) < 0) {
+                    std::cerr << "Error: unable to disable direct_sampling" << std::endl;
+                    throw std::logic_error("Fatal Error, unable to disable direct_sampling");
+                }
 
-      slen = ((current_fft_size -
-               ElectrosenseContext::getInstance()->getSoverlap()) *
-                  ElectrosenseContext::getInstance()->getAvgFactor() +
-              ElectrosenseContext::getInstance()->getSoverlap()) * 2;
+                int gain = ElectrosenseContext::getInstance()->getGain();
+                rtlsdr_set_agc_mode(mDevice, 0);
+                int r = rtlsdr_set_tuner_gain_mode(mDevice, 1);
+                if (r < 0) {
+                    std::cerr << "ERROR: Failed to enable manual gain mode" << std::endl;
+                    throw std::logic_error("Fatal Error");
+                }
+                r = rtlsdr_set_tuner_gain(mDevice, gain * 10);
+                if (r < 0) {
+                    std::cerr << "ERROR: Failed to set manual tuner gain" << std::endl;
+                    throw std::logic_error("Fatal Error");
+                } else {
+                    int g = rtlsdr_get_tuner_gain(mDevice);
+                    std::cout << "Gain set to " << g / 10 << std::endl;
+                }
 
-      // NOTE: libusb_bulk_transfer for RTL-SDR seems to crash when not reading
-      // multiples of 512 (BULK_TRANSFER_MULTIPLE)
-      if (slen % BULK_TRANSFER_MULTIPLE != 0)
-        slen = slen + (BULK_TRANSFER_MULTIPLE - (slen % BULK_TRANSFER_MULTIPLE));
 
-      iq_buf = (uint8_t *)realloc(iq_buf, slen * sizeof(uint8_t));
-    }
+                direct_sampling = false;
 
-    int n_read;
-    struct timespec current_time;
-    clock_gettime(CLOCK_REALTIME, &current_time);
+            } else if (center_freq < 24e6 && !direct_sampling) {
 
-    int r = rtlsdr_read_sync(mDevice, iq_buf, slen, &n_read);
-    if (r != 0 || (unsigned int)n_read != slen) {
-      fprintf(stderr, "WARNING: Synchronous read failed.\n");
-      mRunning = false;
-    }
 
-    if (mustInvert) {
-      for (int i = 0; i < n_read; i += 2) {
-        iq_buf[i] = 255 - iq_buf[i];
+                if (rtlsdr_set_direct_sampling(mDevice, 2) < 0) {
+                    std::cerr << "Error: unable to set direct_sampling" << std::endl;
+                    throw std::logic_error("Fatal Error, unable to set direct_sampling");
+                }
+                rtlsdr_set_tuner_gain_mode(mDevice, 0);
+                rtlsdr_set_agc_mode(mDevice, 1);
+                direct_sampling = true;
+            }
+        }
+
+      int r = rtlsdr_set_center_freq(mDevice, center_freq);
+      if (r != 0) {
+        std::cerr << "Error: unable to set center frequency: " << center_freq << std::endl;
+        continue;
+      }
+
+      // Reset the buffer
+      if (rtlsdr_reset_buffer(mDevice) < 0) {
+        std::cerr << "Error: unable to reset RTLSDR buffer" << std::endl;
+        mRunning = false;
       }
     }
+  }
 
-    std::vector<std::complex<float>> iq_vector;
+  unsigned int current_fft_size =
+      1 << ElectrosenseContext::getInstance()->getLog2FftSize();
+
+  if (fft_size != current_fft_size) {
+
+    fft_size = current_fft_size;
+
+    slen = ((current_fft_size -
+              ElectrosenseContext::getInstance()->getSoverlap()) *
+                ElectrosenseContext::getInstance()->getAvgFactor() +
+            ElectrosenseContext::getInstance()->getSoverlap()) * 2;
+
+    // NOTE: libusb_bulk_transfer for RTL-SDR seems to crash when not reading
+    // multiples of 512 (BULK_TRANSFER_MULTIPLE)
+    if (slen % BULK_TRANSFER_MULTIPLE != 0)
+      slen = slen + (BULK_TRANSFER_MULTIPLE - (slen % BULK_TRANSFER_MULTIPLE));
+
+    iq_buf = (uint8_t *)realloc(iq_buf, slen * sizeof(uint8_t));
+  }
+
+  int n_read;
+  struct timespec current_time;
+  clock_gettime(CLOCK_REALTIME, &current_time);
+
+  int r = rtlsdr_read_sync(mDevice, iq_buf, slen, &n_read);
+  if (r != 0 || (unsigned int)n_read != slen) {
+    fprintf(stderr, "WARNING: Synchronous read failed.\n");
+    mRunning = false;
+  }
+
+  if (mustInvert) {
+    for (int i = 0; i < n_read; i += 2) {
+      iq_buf[i] = 255 - iq_buf[i];
+    }
+  }
+
+  std::vector<std::complex<float>> iq_vector;
+
+  for (unsigned int i = 0; i < ElectrosenseContext::getInstance()->getAvgFactor(); i++) {
+    iq_vector.clear();
+
+    for (unsigned int j = 0; j < current_fft_size * 2; j = j + 2) {
+
+      // Every segment overlaps getSoverlap() samples in time domain.
+        iq_vector.push_back(std::complex<float>(
+          iq_buf[j + i * (current_fft_size - ElectrosenseContext::getInstance()->getSoverlap()) * 2],
+          iq_buf[j + 1 + i * (current_fft_size - ElectrosenseContext::getInstance()->getSoverlap()) * 2]));
+      }
 
 
+    // TODO: Id should be the ethernet MAC
+    SpectrumSegment *segment = new SpectrumSegment(
+        -1000, current_time, center_freq, ElectrosenseContext::getInstance()->getSamplingRate(), iq_vector);
+    mQueueOut->enqueue(segment);
 
-//-------------------------------------------------------------------------------------------------------------
-// NO ATTACK
-//-----------------------------------
+  }
+  }
 
-    for (unsigned int i = 0; i < ElectrosenseContext::getInstance()->getAvgFactor(); i++) {
-      iq_vector.clear();
+  delete (mSeqHopping);
+}  
 
-      for (unsigned int j = 0; j < current_fft_size * 2; j = j + 2) {
+void rtlsdrDriver::SyncSampling_repeat() {
 
-        // Every segment overlaps getSoverlap() samples in time domain.
+  const int BULK_TRANSFER_MULTIPLE = 512;
+
+  std::cout << "rtlsdrDriver::run" << std::endl;
+
+  mSeqHopping = new SequentialHopping();
+  uint64_t center_freq = 0, previous_freq = 0, fft_size = 0, slen = 0;
+  uint64_t proxy_freq = 0, previous_proxy_freq = 0;
+  bool mustInvert;
+
+  uint8_t *iq_buf = NULL;
+  bool direct_sampling = true;
+  
+  //----------------------------------------------------------------------------------------------------------
+  // REPEAT - Setup
+  //---------------------
+  std::vector<std::complex<float>> repeat_source_segment;
+  uint64_t attack_freq_1 = ElectrosenseContext::getInstance()->getAttackFreq1();
+  uint64_t attack_bw = ElectrosenseContext::getInstance()->getBandwidth();
+
+while (mRunning) {
+
+  // Introduce here the concept of segment per band (before jumping).
+
+  center_freq = mSeqHopping->nextHop();
+  mustInvert = false;
+  // std::cout << "Currently sampling with center frequency: " << center_freq
+  //       << std::endl;
+
+  if (previous_freq != center_freq) {
+    previous_freq = center_freq;
+
+    // RTL-SDR as proxy of the down-converter
+    if (mConverterEnabled) {
+
+      if (!converterTune(&mConverterDriver, center_freq / 1e3, &proxy_freq,
+                          &mustInvert)) {
+        mRunning = false;
+        throw std::logic_error("Failed to converterTune");
+      }
+        // printf("Tuning to %llu Hz, receiving on %llu kHz\n", center_freq,
+      // proxy_freq);
+
+      if (previous_proxy_freq != proxy_freq) {
+
+        previous_proxy_freq = proxy_freq;
+
+        int r = rtlsdr_set_center_freq(mDevice, proxy_freq * 1e3);
+        if (r != 0) {
+          std::cerr << "Error: unable to set center frequency: "<< proxy_freq * 1e3 << std::endl;
+          continue;
+        }
+
+        // Reset the buffer
+        if (rtlsdr_reset_buffer(mDevice) < 0) {
+          std::cerr << "Error: unable to reset RTLSDR buffer" << std::endl;
+          mRunning = false;
+        }
+      }
+
+    // Native RTL-SDR
+    } else {
+
+        // Direct sampling
+        if (ElectrosenseContext::getInstance()->getDirectSamplingMode() > 0) {
+            if (center_freq >= 24e6 && direct_sampling) {
+
+                if (rtlsdr_set_direct_sampling(mDevice, 0) < 0) {
+                    std::cerr << "Error: unable to disable direct_sampling" << std::endl;
+                    throw std::logic_error("Fatal Error, unable to disable direct_sampling");
+                }
+
+                int gain = ElectrosenseContext::getInstance()->getGain();
+                rtlsdr_set_agc_mode(mDevice, 0);
+                int r = rtlsdr_set_tuner_gain_mode(mDevice, 1);
+                if (r < 0) {
+                    std::cerr << "ERROR: Failed to enable manual gain mode" << std::endl;
+                    throw std::logic_error("Fatal Error");
+                }
+                r = rtlsdr_set_tuner_gain(mDevice, gain * 10);
+                if (r < 0) {
+                    std::cerr << "ERROR: Failed to set manual tuner gain" << std::endl;
+                    throw std::logic_error("Fatal Error");
+                } else {
+                    int g = rtlsdr_get_tuner_gain(mDevice);
+                    std::cout << "Gain set to " << g / 10 << std::endl;
+                }
+
+
+                direct_sampling = false;
+
+            } else if (center_freq < 24e6 && !direct_sampling) {
+
+
+                if (rtlsdr_set_direct_sampling(mDevice, 2) < 0) {
+                    std::cerr << "Error: unable to set direct_sampling" << std::endl;
+                    throw std::logic_error("Fatal Error, unable to set direct_sampling");
+                }
+                rtlsdr_set_tuner_gain_mode(mDevice, 0);
+                rtlsdr_set_agc_mode(mDevice, 1);
+                direct_sampling = true;
+            }
+        }
+
+      int r = rtlsdr_set_center_freq(mDevice, center_freq);
+      if (r != 0) {
+        std::cerr << "Error: unable to set center frequency: " << center_freq << std::endl;
+        continue;
+      }
+
+      // Reset the buffer
+      if (rtlsdr_reset_buffer(mDevice) < 0) {
+        std::cerr << "Error: unable to reset RTLSDR buffer" << std::endl;
+        mRunning = false;
+      }
+    }
+  }
+
+  unsigned int current_fft_size =
+      1 << ElectrosenseContext::getInstance()->getLog2FftSize();
+
+  if (fft_size != current_fft_size) {
+
+    fft_size = current_fft_size;
+
+    slen = ((current_fft_size -
+              ElectrosenseContext::getInstance()->getSoverlap()) *
+                ElectrosenseContext::getInstance()->getAvgFactor() +
+            ElectrosenseContext::getInstance()->getSoverlap()) * 2;
+
+    // NOTE: libusb_bulk_transfer for RTL-SDR seems to crash when not reading
+    // multiples of 512 (BULK_TRANSFER_MULTIPLE)
+    if (slen % BULK_TRANSFER_MULTIPLE != 0)
+      slen = slen + (BULK_TRANSFER_MULTIPLE - (slen % BULK_TRANSFER_MULTIPLE));
+
+    iq_buf = (uint8_t *)realloc(iq_buf, slen * sizeof(uint8_t));
+  }
+
+  int n_read;
+  struct timespec current_time;
+  clock_gettime(CLOCK_REALTIME, &current_time);
+
+  int r = rtlsdr_read_sync(mDevice, iq_buf, slen, &n_read);
+  if (r != 0 || (unsigned int)n_read != slen) {
+    fprintf(stderr, "WARNING: Synchronous read failed.\n");
+    mRunning = false;
+  }
+
+  if (mustInvert) {
+    for (int i = 0; i < n_read; i += 2) {
+      iq_buf[i] = 255 - iq_buf[i];
+    }
+  }
+
+  std::vector<std::complex<float>> iq_vector;
+
+  //-------------------------------------------------------------------------------------------------------------
+  //  REPEAT - Modifies Spectrum Segments with the the PSD values of one of them
+  //--------------------------------------------------------------------
+      for (unsigned int i = 0; i < ElectrosenseContext::getInstance()->getAvgFactor(); i++) {
+        iq_vector.clear();
+        for (unsigned int j = 0; j < current_fft_size * 2; j = j + 2) {
           iq_vector.push_back(std::complex<float>(
             iq_buf[j + i * (current_fft_size - ElectrosenseContext::getInstance()->getSoverlap()) * 2],
             iq_buf[j + 1 + i * (current_fft_size - ElectrosenseContext::getInstance()->getSoverlap()) * 2]));
         }
 
+        //-- Indicates the frequency segment affected by the attack
+        if (center_freq >= attack_freq_1 && center_freq <= attack_freq_1 + attack_bw ) {
 
-//---------------------------------------------------------------------------------------------------
+          //-- If the vector with the PSD values already exists, it copies its content to the segment to be sent
+          if (!repeat_source_segment.empty()) {
+            iq_vector.clear();
+            for(unsigned int i = 0; i < repeat_source_segment.size(); i++) {
+              iq_vector.push_back(repeat_source_segment[i]);
+            }
+          }
 
+          //-- If the vector is empty it creates it and saves the PSD values of the selected frequency segment
+          else {
+            for(unsigned int i = 0; i < iq_vector.size(); i++) {
+              repeat_source_segment.push_back(iq_vector[i]);
+            }
+          }
+       }
 
-//-------------------------------------------------------------------------------------------------------------
-//  REPEAT - Modifies Spectrum Segments with the the PSD values of one of them
-//--------------------------------------------------------------------
-    // for (unsigned int i = 0; i < ElectrosenseContext::getInstance()->getAvgFactor(); i++) {
-    //   iq_vector.clear();
-    //   for (unsigned int j = 0; j < current_fft_size * 2; j = j + 2) {
-    //     iq_vector.push_back(std::complex<float>(
-    //       iq_buf[j + i * (current_fft_size - ElectrosenseContext::getInstance()->getSoverlap()) * 2],
-    //       iq_buf[j + 1 + i * (current_fft_size - ElectrosenseContext::getInstance()->getSoverlap()) * 2]));
-    //   }
-
-    //   //-- Indicates the frequency segment affected by the attack
-    //   if (center_freq >= attacked_freq_1 && center_freq <= attacked_freq_1 + attack_bw ) {
-
-    //     //-- If the vector with the PSD values already exists, it copies its content to the segment to be sent
-    //     if (!repeat_source_segment.empty()) {
-    //       iq_vector.clear();
-    //       for(unsigned int i = 0; i < repeat_source_segment.size(); i++) {
-    //         iq_vector.push_back(repeat_source_segment[i]);
-    //       }
-    //     }
-
-    //     //-- If the vector is empty it creates it and saves the PSD values of the selected frequency segment
-    //     else {
-    //       for(unsigned int i = 0; i < iq_vector.size(); i++) {
-    //         repeat_source_segment.push_back(iq_vector[i]);
-    //       }
-    //     }
-    //  }
-
-//----------------------------------------------------------------------------------------------------------
+  //----------------------------------------------------------------------------------------------------------
 
 
-//----------------------------------------------------------------------------------------------------------
-//  MIMIC - Copies one band in another band
-//---------------------------------------
+    // TODO: Id should be the ethernet MAC
+    SpectrumSegment *segment = new SpectrumSegment(
+        -1000, current_time, center_freq, ElectrosenseContext::getInstance()->getSamplingRate(), iq_vector);
+    mQueueOut->enqueue(segment);
+
+  }
+  }
+
+  delete (mSeqHopping);
+}  
 
 
-    // for (unsigned int i = 0; i < ElectrosenseContext::getInstance()->getAvgFactor(); i++) {
-    //   iq_vector.clear();
-    //   for (unsigned int j = 0; j < current_fft_size * 2; j = j + 2) {
-    //     iq_vector.push_back(std::complex<float>(
-    //       iq_buf[j + i * (current_fft_size - ElectrosenseContext::getInstance()->getSoverlap()) * 2],
-    //       iq_buf[j + 1 + i * (current_fft_size - ElectrosenseContext::getInstance()->getSoverlap()) * 2]));
-    //   }
+void rtlsdrDriver::SyncSampling_mimic() {
 
-    //   //--The segment that needs to be copied
-    //   if (center_freq > attacked_freq_1 && center_freq < attacked_freq_1 + attack_bw ) {
-    //     if (i == ElectrosenseContext::getInstance()->getAvgFactor() -1){
-    //       mimic_source_segment.push_back(iq_vector);
-    //     }
-    //   }
-    //   //--The segment the copied PSD values are pasted into
-    //   else if (center_freq > attacked_freq_2 && center_freq < attacked_freq_2 + attack_bw) {
-    //       iq_vector.clear();
-    //       for(unsigned int i = 0; i < mimic_source_segment[current_frequency].size(); i++) {
-    //         iq_vector.push_back(mimic_source_segment[current_frequency][i]);
-    //       }
-    //       if (i == ElectrosenseContext::getInstance()->getAvgFactor() -1) current_frequency++;
-    //   }
+  const int BULK_TRANSFER_MULTIPLE = 512;
+
+  std::cout << "rtlsdrDriver::run" << std::endl;
+
+  mSeqHopping = new SequentialHopping();
+  uint64_t center_freq = 0, previous_freq = 0, fft_size = 0, slen = 0;
+  uint64_t proxy_freq = 0, previous_proxy_freq = 0;
+  bool mustInvert;
+
+  uint8_t *iq_buf = NULL;
+  bool direct_sampling = true;
 
 
-    //   if (current_frequency != 0 && center_freq > attacked_freq_2 + attack_bw) {
-    //     mimic_source_segment.clear();
-    //     current_frequency = 0;
-    //   }
+  //----------------------------------------------------------------------------------------------------------
+  // MIMIC - Setup
+  //---------------------
+  int current_frequency = 0;
+  std::vector<std::vector<std::complex<float>>>  mimic_source_segment;
+  uint64_t attack_freq_1 = ElectrosenseContext::getInstance()->getAttackFreq1();
+  uint64_t attack_freq_2 = ElectrosenseContext::getInstance()->getAttackFreq2();
+  uint64_t attack_bw = ElectrosenseContext::getInstance()->getBandwidth();
+
+
+while (mRunning) {
+
+  // Introduce here the concept of segment per band (before jumping).
+
+  center_freq = mSeqHopping->nextHop();
+  mustInvert = false;
+  // std::cout << "Currently sampling with center frequency: " << center_freq
+  //       << std::endl;
+
+  if (previous_freq != center_freq) {
+    previous_freq = center_freq;
+
+    // RTL-SDR as proxy of the down-converter
+    if (mConverterEnabled) {
+
+      if (!converterTune(&mConverterDriver, center_freq / 1e3, &proxy_freq,
+                          &mustInvert)) {
+        mRunning = false;
+        throw std::logic_error("Failed to converterTune");
+      }
+        // printf("Tuning to %llu Hz, receiving on %llu kHz\n", center_freq,
+      // proxy_freq);
+
+      if (previous_proxy_freq != proxy_freq) {
+
+        previous_proxy_freq = proxy_freq;
+
+        int r = rtlsdr_set_center_freq(mDevice, proxy_freq * 1e3);
+        if (r != 0) {
+          std::cerr << "Error: unable to set center frequency: "<< proxy_freq * 1e3 << std::endl;
+          continue;
+        }
+
+        // Reset the buffer
+        if (rtlsdr_reset_buffer(mDevice) < 0) {
+          std::cerr << "Error: unable to reset RTLSDR buffer" << std::endl;
+          mRunning = false;
+        }
+      }
+
+    // Native RTL-SDR
+    } else {
+
+        // Direct sampling
+        if (ElectrosenseContext::getInstance()->getDirectSamplingMode() > 0) {
+            if (center_freq >= 24e6 && direct_sampling) {
+
+                if (rtlsdr_set_direct_sampling(mDevice, 0) < 0) {
+                    std::cerr << "Error: unable to disable direct_sampling" << std::endl;
+                    throw std::logic_error("Fatal Error, unable to disable direct_sampling");
+                }
+
+                int gain = ElectrosenseContext::getInstance()->getGain();
+                rtlsdr_set_agc_mode(mDevice, 0);
+                int r = rtlsdr_set_tuner_gain_mode(mDevice, 1);
+                if (r < 0) {
+                    std::cerr << "ERROR: Failed to enable manual gain mode" << std::endl;
+                    throw std::logic_error("Fatal Error");
+                }
+                r = rtlsdr_set_tuner_gain(mDevice, gain * 10);
+                if (r < 0) {
+                    std::cerr << "ERROR: Failed to set manual tuner gain" << std::endl;
+                    throw std::logic_error("Fatal Error");
+                } else {
+                    int g = rtlsdr_get_tuner_gain(mDevice);
+                    std::cout << "Gain set to " << g / 10 << std::endl;
+                }
+
+
+                direct_sampling = false;
+
+            } else if (center_freq < 24e6 && !direct_sampling) {
+
+
+                if (rtlsdr_set_direct_sampling(mDevice, 2) < 0) {
+                    std::cerr << "Error: unable to set direct_sampling" << std::endl;
+                    throw std::logic_error("Fatal Error, unable to set direct_sampling");
+                }
+                rtlsdr_set_tuner_gain_mode(mDevice, 0);
+                rtlsdr_set_agc_mode(mDevice, 1);
+                direct_sampling = true;
+            }
+        }
+
+      int r = rtlsdr_set_center_freq(mDevice, center_freq);
+      if (r != 0) {
+        std::cerr << "Error: unable to set center frequency: " << center_freq << std::endl;
+        continue;
+      }
+
+      // Reset the buffer
+      if (rtlsdr_reset_buffer(mDevice) < 0) {
+        std::cerr << "Error: unable to reset RTLSDR buffer" << std::endl;
+        mRunning = false;
+      }
+    }
+  }
+
+  unsigned int current_fft_size =
+      1 << ElectrosenseContext::getInstance()->getLog2FftSize();
+
+  if (fft_size != current_fft_size) {
+
+    fft_size = current_fft_size;
+
+    slen = ((current_fft_size -
+              ElectrosenseContext::getInstance()->getSoverlap()) *
+                ElectrosenseContext::getInstance()->getAvgFactor() +
+            ElectrosenseContext::getInstance()->getSoverlap()) * 2;
+
+    // NOTE: libusb_bulk_transfer for RTL-SDR seems to crash when not reading
+    // multiples of 512 (BULK_TRANSFER_MULTIPLE)
+    if (slen % BULK_TRANSFER_MULTIPLE != 0)
+      slen = slen + (BULK_TRANSFER_MULTIPLE - (slen % BULK_TRANSFER_MULTIPLE));
+
+    iq_buf = (uint8_t *)realloc(iq_buf, slen * sizeof(uint8_t));
+  }
+
+  int n_read;
+  struct timespec current_time;
+  clock_gettime(CLOCK_REALTIME, &current_time);
+
+  int r = rtlsdr_read_sync(mDevice, iq_buf, slen, &n_read);
+  if (r != 0 || (unsigned int)n_read != slen) {
+    fprintf(stderr, "WARNING: Synchronous read failed.\n");
+    mRunning = false;
+  }
+
+  if (mustInvert) {
+    for (int i = 0; i < n_read; i += 2) {
+      iq_buf[i] = 255 - iq_buf[i];
+    }
+  }
+
+  std::vector<std::complex<float>> iq_vector;
+
+  //----------------------------------------------------------------------------------------------------------
+  //  MIMIC - Copies one band in another band
+  //---------------------------------------
+
+
+    for (unsigned int i = 0; i < ElectrosenseContext::getInstance()->getAvgFactor(); i++) {
+      iq_vector.clear();
+      for (unsigned int j = 0; j < current_fft_size * 2; j = j + 2) {
+        iq_vector.push_back(std::complex<float>(
+          iq_buf[j + i * (current_fft_size - ElectrosenseContext::getInstance()->getSoverlap()) * 2],
+          iq_buf[j + 1 + i * (current_fft_size - ElectrosenseContext::getInstance()->getSoverlap()) * 2]));
+      }
+
+      //--The segment that needs to be copied
+      if (center_freq > attack_freq_1 && center_freq < attack_freq_1 + attack_bw ) {
+        if (i == ElectrosenseContext::getInstance()->getAvgFactor() -1){
+          mimic_source_segment.push_back(iq_vector);
+        }
+      }
+      //--The segment the copied PSD values are pasted into
+      else if (center_freq > attack_freq_2 && center_freq < attack_freq_2 + attack_bw) {
+          iq_vector.clear();
+          for(unsigned int i = 0; i < mimic_source_segment[current_frequency].size(); i++) {
+            iq_vector.push_back(mimic_source_segment[current_frequency][i]);
+          }
+          if (i == ElectrosenseContext::getInstance()->getAvgFactor() -1) current_frequency++;
+      }
+
+
+      if (current_frequency != 0 && center_freq > attack_freq_2 + attack_bw) {
+        mimic_source_segment.clear();
+        current_frequency = 0;
+      }
 
 
 //------------------------------------------------------------------------------------------------------
 
 
-//----------------------------------------------------------------------------------------------------------
-//  CONFUSION/EXCHANGE/DISORDER
-//--------------------
+    // TODO: Id should be the ethernet MAC
+    SpectrumSegment *segment = new SpectrumSegment(
+        -1000, current_time, center_freq, ElectrosenseContext::getInstance()->getSamplingRate(), iq_vector);
+    mQueueOut->enqueue(segment);
 
-    // for (unsigned int i = 0; i < ElectrosenseContext::getInstance()->getAvgFactor(); i++) {
-    //   iq_vector.clear();
-    //   for (unsigned int j = 0; j < current_fft_size * 2; j = j + 2) {
+  }
+  }
 
-    //     iq_vector.push_back(std::complex<float>(
-    //       iq_buf[j + i * (current_fft_size - ElectrosenseContext::getInstance()->getSoverlap()) * 2],
-    //       iq_buf[j + 1 + i * (current_fft_size - ElectrosenseContext::getInstance()->getSoverlap()) * 2]));
-    //   }
+  delete (mSeqHopping);
+}  
 
-    //   //-- The first frequency segment that needs to be exchanged
-    //   if (center_freq > attacked_freq_1 && center_freq < attacked_freq_1 + attack_bw ) {
-    //     //-- Save the sensed PSD values in temporary variable
-    //     if (i == 0){
-    //       confusion_source_segment_1.push_back(iq_vector);
-    //     }
-    //     //-- overwrite the sensed PSD values with the second segment if it already exists
-    //     if (!confusion_source_segment_2.empty()) {
-    //       iq_vector.clear();
-    //       for(unsigned int i = 0; i < confusion_source_segment_2[current_frequency].size(); i++) {
-    //         iq_vector.push_back(confusion_source_segment_2[current_frequency][i]);
-    //       }
-    //       if (i == ElectrosenseContext::getInstance()->getAvgFactor() - 1) {
-    //         current_frequency++;
-    //       }
-    //     }
-    //   }
 
-    //   if (current_frequency != 0 && center_freq > attacked_freq_1 + attack_bw  && center_freq < attacked_freq_2 ) {
-    //     confusion_source_segment_2.clear();
-    //     current_frequency = 0;
-    //   }
+void rtlsdrDriver::SyncSampling_confusion() {
 
-    //   //-- The second frequency segment that needs to be exchanged
-    //   if (center_freq > attacked_freq_2 && center_freq < attacked_freq_2 + attack_bw) {
-    //     //-- Save the sensed PSD values in temporary variable
-    //     if (i == 0){
-    //       confusion_source_segment_2.push_back(iq_vector);
-    //     }
-    //     //-- overwrite the sensed PSD values with the first segment
-    //     iq_vector.clear();
-    //     for(unsigned int i = 0; i < confusion_source_segment_1[current_frequency].size(); i++) {
-    //       iq_vector.push_back(confusion_source_segment_1[current_frequency][i]);
-    //     }
-    //     if (i == ElectrosenseContext::getInstance()->getAvgFactor() - 1) {
-    //       current_frequency++;
-    //     }
-    //   }
+  const int BULK_TRANSFER_MULTIPLE = 512;
 
-    //   if (current_frequency != 0 && center_freq > attacked_freq_2 + attack_bw) {
-    //     confusion_source_segment_1.clear();
-    //     current_frequency = 0;
-    //   }
+  std::cout << "rtlsdrDriver::run" << std::endl;
+
+  mSeqHopping = new SequentialHopping();
+  uint64_t center_freq = 0, previous_freq = 0, fft_size = 0, slen = 0;
+  uint64_t proxy_freq = 0, previous_proxy_freq = 0;
+  bool mustInvert;
+
+  uint8_t *iq_buf = NULL;
+  bool direct_sampling = true;
+
+  
+  //----------------------------------------------------------------------------------------------------------
+  // CONFUSION/EXCHANGE/DISORDER - Setup
+  //---------------------
+  int current_frequency = 0;
+  std::vector<std::vector<std::complex<float>>> confusion_source_segment_1;
+  std::vector<std::vector<std::complex<float>>> confusion_source_segment_2;
+  uint64_t attack_freq_1 = ElectrosenseContext::getInstance()->getAttackFreq1();
+  uint64_t attack_freq_2 = ElectrosenseContext::getInstance()->getAttackFreq2();
+  uint64_t attack_bw = ElectrosenseContext::getInstance()->getBandwidth();
+
+
+
+while (mRunning) {
+
+  // Introduce here the concept of segment per band (before jumping).
+
+  center_freq = mSeqHopping->nextHop();
+  mustInvert = false;
+  // std::cout << "Currently sampling with center frequency: " << center_freq
+  //       << std::endl;
+
+  if (previous_freq != center_freq) {
+    previous_freq = center_freq;
+
+    // RTL-SDR as proxy of the down-converter
+    if (mConverterEnabled) {
+
+      if (!converterTune(&mConverterDriver, center_freq / 1e3, &proxy_freq,
+                          &mustInvert)) {
+        mRunning = false;
+        throw std::logic_error("Failed to converterTune");
+      }
+        // printf("Tuning to %llu Hz, receiving on %llu kHz\n", center_freq,
+      // proxy_freq);
+
+      if (previous_proxy_freq != proxy_freq) {
+
+        previous_proxy_freq = proxy_freq;
+
+        int r = rtlsdr_set_center_freq(mDevice, proxy_freq * 1e3);
+        if (r != 0) {
+          std::cerr << "Error: unable to set center frequency: "<< proxy_freq * 1e3 << std::endl;
+          continue;
+        }
+
+        // Reset the buffer
+        if (rtlsdr_reset_buffer(mDevice) < 0) {
+          std::cerr << "Error: unable to reset RTLSDR buffer" << std::endl;
+          mRunning = false;
+        }
+      }
+
+    // Native RTL-SDR
+    } else {
+
+        // Direct sampling
+        if (ElectrosenseContext::getInstance()->getDirectSamplingMode() > 0) {
+            if (center_freq >= 24e6 && direct_sampling) {
+
+                if (rtlsdr_set_direct_sampling(mDevice, 0) < 0) {
+                    std::cerr << "Error: unable to disable direct_sampling" << std::endl;
+                    throw std::logic_error("Fatal Error, unable to disable direct_sampling");
+                }
+
+                int gain = ElectrosenseContext::getInstance()->getGain();
+                rtlsdr_set_agc_mode(mDevice, 0);
+                int r = rtlsdr_set_tuner_gain_mode(mDevice, 1);
+                if (r < 0) {
+                    std::cerr << "ERROR: Failed to enable manual gain mode" << std::endl;
+                    throw std::logic_error("Fatal Error");
+                }
+                r = rtlsdr_set_tuner_gain(mDevice, gain * 10);
+                if (r < 0) {
+                    std::cerr << "ERROR: Failed to set manual tuner gain" << std::endl;
+                    throw std::logic_error("Fatal Error");
+                } else {
+                    int g = rtlsdr_get_tuner_gain(mDevice);
+                    std::cout << "Gain set to " << g / 10 << std::endl;
+                }
+
+
+                direct_sampling = false;
+
+            } else if (center_freq < 24e6 && !direct_sampling) {
+
+
+                if (rtlsdr_set_direct_sampling(mDevice, 2) < 0) {
+                    std::cerr << "Error: unable to set direct_sampling" << std::endl;
+                    throw std::logic_error("Fatal Error, unable to set direct_sampling");
+                }
+                rtlsdr_set_tuner_gain_mode(mDevice, 0);
+                rtlsdr_set_agc_mode(mDevice, 1);
+                direct_sampling = true;
+            }
+        }
+
+      int r = rtlsdr_set_center_freq(mDevice, center_freq);
+      if (r != 0) {
+        std::cerr << "Error: unable to set center frequency: " << center_freq << std::endl;
+        continue;
+      }
+
+      // Reset the buffer
+      if (rtlsdr_reset_buffer(mDevice) < 0) {
+        std::cerr << "Error: unable to reset RTLSDR buffer" << std::endl;
+        mRunning = false;
+      }
+    }
+  }
+
+  unsigned int current_fft_size =
+      1 << ElectrosenseContext::getInstance()->getLog2FftSize();
+
+  if (fft_size != current_fft_size) {
+
+    fft_size = current_fft_size;
+
+    slen = ((current_fft_size -
+              ElectrosenseContext::getInstance()->getSoverlap()) *
+                ElectrosenseContext::getInstance()->getAvgFactor() +
+            ElectrosenseContext::getInstance()->getSoverlap()) * 2;
+
+    // NOTE: libusb_bulk_transfer for RTL-SDR seems to crash when not reading
+    // multiples of 512 (BULK_TRANSFER_MULTIPLE)
+    if (slen % BULK_TRANSFER_MULTIPLE != 0)
+      slen = slen + (BULK_TRANSFER_MULTIPLE - (slen % BULK_TRANSFER_MULTIPLE));
+
+    iq_buf = (uint8_t *)realloc(iq_buf, slen * sizeof(uint8_t));
+  }
+
+  int n_read;
+  struct timespec current_time;
+  clock_gettime(CLOCK_REALTIME, &current_time);
+
+  int r = rtlsdr_read_sync(mDevice, iq_buf, slen, &n_read);
+  if (r != 0 || (unsigned int)n_read != slen) {
+    fprintf(stderr, "WARNING: Synchronous read failed.\n");
+    mRunning = false;
+  }
+
+  if (mustInvert) {
+    for (int i = 0; i < n_read; i += 2) {
+      iq_buf[i] = 255 - iq_buf[i];
+    }
+  }
+
+  std::vector<std::complex<float>> iq_vector;
+
+  //----------------------------------------------------------------------------------------------------------
+  //  CONFUSION/EXCHANGE/DISORDER
+  //--------------------
+
+    for (unsigned int i = 0; i < ElectrosenseContext::getInstance()->getAvgFactor(); i++) {
+      iq_vector.clear();
+      for (unsigned int j = 0; j < current_fft_size * 2; j = j + 2) {
+
+        iq_vector.push_back(std::complex<float>(
+          iq_buf[j + i * (current_fft_size - ElectrosenseContext::getInstance()->getSoverlap()) * 2],
+          iq_buf[j + 1 + i * (current_fft_size - ElectrosenseContext::getInstance()->getSoverlap()) * 2]));
+      }
+
+      //-- The first frequency segment that needs to be exchanged
+      if (center_freq > attack_freq_1 && center_freq < attack_freq_1 + attack_bw ) {
+        //-- Save the sensed PSD values in temporary variable
+        if (i == 0){
+          confusion_source_segment_1.push_back(iq_vector);
+        }
+        //-- overwrite the sensed PSD values with the second segment if it already exists
+        if (!confusion_source_segment_2.empty()) {
+          iq_vector.clear();
+          for(unsigned int i = 0; i < confusion_source_segment_2[current_frequency].size(); i++) {
+            iq_vector.push_back(confusion_source_segment_2[current_frequency][i]);
+          }
+          if (i == ElectrosenseContext::getInstance()->getAvgFactor() - 1) {
+            current_frequency++;
+          }
+        }
+      }
+
+      if (current_frequency != 0 && center_freq > attack_freq_1 + attack_bw  && center_freq < attack_freq_2 ) {
+        confusion_source_segment_2.clear();
+        current_frequency = 0;
+      }
+
+      //-- The second frequency segment that needs to be exchanged
+      if (center_freq > attack_freq_2 && center_freq < attack_freq_2 + attack_bw) {
+        //-- Save the sensed PSD values in temporary variable
+        if (i == 0){
+          confusion_source_segment_2.push_back(iq_vector);
+        }
+        //-- overwrite the sensed PSD values with the first segment
+        iq_vector.clear();
+        for(unsigned int i = 0; i < confusion_source_segment_1[current_frequency].size(); i++) {
+          iq_vector.push_back(confusion_source_segment_1[current_frequency][i]);
+        }
+        if (i == ElectrosenseContext::getInstance()->getAvgFactor() - 1) {
+          current_frequency++;
+        }
+      }
+
+      if (current_frequency != 0 && center_freq > attack_freq_2 + attack_bw) {
+        confusion_source_segment_1.clear();
+        current_frequency = 0;
+      }
 
 //---------------------------------------------------------------------------------------------------------------
 
-//-------------------------------------------------------------------------------------------------------------
-//  NOISE 
-//---------------------
-    // for (unsigned int i = 0; i < ElectrosenseContext::getInstance()->getAvgFactor(); i++) {
-    //   iq_vector.clear();
-    //   for (unsigned int j = 0; j < current_fft_size * 2; j = j + 2) {
+    // TODO: Id should be the ethernet MAC
+    SpectrumSegment *segment = new SpectrumSegment(
+        -1000, current_time, center_freq, ElectrosenseContext::getInstance()->getSamplingRate(), iq_vector);
+    mQueueOut->enqueue(segment);
 
-    //     iq_vector.push_back(std::complex<float>(
-    //       iq_buf[j + i * (current_fft_size - ElectrosenseContext::getInstance()->getSoverlap()) * 2],
-    //       iq_buf[j + 1 + i * (current_fft_size - ElectrosenseContext::getInstance()->getSoverlap()) * 2]));
-    //   }
+  }
+  }
 
-    // if (center_freq > attacked_freq_1 && center_freq < attacked_freq_1 + attack_bw) {
+  delete (mSeqHopping);
+}  
 
-    //   for(unsigned int x = 0; x < iq_vector.size(); x++) {
-    //     iq_vector[x] = iq_vector[x] + randomValue;
-    //   }
 
-    // }
+void rtlsdrDriver::SyncSampling_noise() {
+
+  const int BULK_TRANSFER_MULTIPLE = 512;
+
+  std::cout << "rtlsdrDriver::run" << std::endl;
+
+  mSeqHopping = new SequentialHopping();
+  uint64_t center_freq = 0, previous_freq = 0, fft_size = 0, slen = 0;
+  uint64_t proxy_freq = 0, previous_proxy_freq = 0;
+  bool mustInvert;
+
+  uint8_t *iq_buf = NULL;
+  bool direct_sampling = true;
+
+  
+
+  //----------------------------------------------------------------------------------------------------------
+  // NOISE - Setup
+  //---------------------
+  std::uniform_real_distribution<double> dist(0, 20);
+  std::random_device urandom("/dev/urandom");
+  // std::complex<float> randomValue = rand() % 5 + 5;
+  uint64_t attack_freq_1 = ElectrosenseContext::getInstance()->getAttackFreq1();
+  uint64_t attack_bw = ElectrosenseContext::getInstance()->getBandwidth();
+
+
+while (mRunning) {
+
+  // Introduce here the concept of segment per band (before jumping).
+
+  center_freq = mSeqHopping->nextHop();
+  mustInvert = false;
+  // std::cout << "Currently sampling with center frequency: " << center_freq
+  //       << std::endl;
+
+  if (previous_freq != center_freq) {
+    previous_freq = center_freq;
+
+    // RTL-SDR as proxy of the down-converter
+    if (mConverterEnabled) {
+
+      if (!converterTune(&mConverterDriver, center_freq / 1e3, &proxy_freq,
+                          &mustInvert)) {
+        mRunning = false;
+        throw std::logic_error("Failed to converterTune");
+      }
+        // printf("Tuning to %llu Hz, receiving on %llu kHz\n", center_freq,
+      // proxy_freq);
+
+      if (previous_proxy_freq != proxy_freq) {
+
+        previous_proxy_freq = proxy_freq;
+
+        int r = rtlsdr_set_center_freq(mDevice, proxy_freq * 1e3);
+        if (r != 0) {
+          std::cerr << "Error: unable to set center frequency: "<< proxy_freq * 1e3 << std::endl;
+          continue;
+        }
+
+        // Reset the buffer
+        if (rtlsdr_reset_buffer(mDevice) < 0) {
+          std::cerr << "Error: unable to reset RTLSDR buffer" << std::endl;
+          mRunning = false;
+        }
+      }
+
+    // Native RTL-SDR
+    } else {
+
+        // Direct sampling
+        if (ElectrosenseContext::getInstance()->getDirectSamplingMode() > 0) {
+            if (center_freq >= 24e6 && direct_sampling) {
+
+                if (rtlsdr_set_direct_sampling(mDevice, 0) < 0) {
+                    std::cerr << "Error: unable to disable direct_sampling" << std::endl;
+                    throw std::logic_error("Fatal Error, unable to disable direct_sampling");
+                }
+
+                int gain = ElectrosenseContext::getInstance()->getGain();
+                rtlsdr_set_agc_mode(mDevice, 0);
+                int r = rtlsdr_set_tuner_gain_mode(mDevice, 1);
+                if (r < 0) {
+                    std::cerr << "ERROR: Failed to enable manual gain mode" << std::endl;
+                    throw std::logic_error("Fatal Error");
+                }
+                r = rtlsdr_set_tuner_gain(mDevice, gain * 10);
+                if (r < 0) {
+                    std::cerr << "ERROR: Failed to set manual tuner gain" << std::endl;
+                    throw std::logic_error("Fatal Error");
+                } else {
+                    int g = rtlsdr_get_tuner_gain(mDevice);
+                    std::cout << "Gain set to " << g / 10 << std::endl;
+                }
+
+
+                direct_sampling = false;
+
+            } else if (center_freq < 24e6 && !direct_sampling) {
+
+
+                if (rtlsdr_set_direct_sampling(mDevice, 2) < 0) {
+                    std::cerr << "Error: unable to set direct_sampling" << std::endl;
+                    throw std::logic_error("Fatal Error, unable to set direct_sampling");
+                }
+                rtlsdr_set_tuner_gain_mode(mDevice, 0);
+                rtlsdr_set_agc_mode(mDevice, 1);
+                direct_sampling = true;
+            }
+        }
+
+      int r = rtlsdr_set_center_freq(mDevice, center_freq);
+      if (r != 0) {
+        std::cerr << "Error: unable to set center frequency: " << center_freq << std::endl;
+        continue;
+      }
+
+      // Reset the buffer
+      if (rtlsdr_reset_buffer(mDevice) < 0) {
+        std::cerr << "Error: unable to reset RTLSDR buffer" << std::endl;
+        mRunning = false;
+      }
+    }
+  }
+
+  unsigned int current_fft_size =
+      1 << ElectrosenseContext::getInstance()->getLog2FftSize();
+
+  if (fft_size != current_fft_size) {
+
+    fft_size = current_fft_size;
+
+    slen = ((current_fft_size -
+              ElectrosenseContext::getInstance()->getSoverlap()) *
+                ElectrosenseContext::getInstance()->getAvgFactor() +
+            ElectrosenseContext::getInstance()->getSoverlap()) * 2;
+
+    // NOTE: libusb_bulk_transfer for RTL-SDR seems to crash when not reading
+    // multiples of 512 (BULK_TRANSFER_MULTIPLE)
+    if (slen % BULK_TRANSFER_MULTIPLE != 0)
+      slen = slen + (BULK_TRANSFER_MULTIPLE - (slen % BULK_TRANSFER_MULTIPLE));
+
+    iq_buf = (uint8_t *)realloc(iq_buf, slen * sizeof(uint8_t));
+  }
+
+  int n_read;
+  struct timespec current_time;
+  clock_gettime(CLOCK_REALTIME, &current_time);
+
+  int r = rtlsdr_read_sync(mDevice, iq_buf, slen, &n_read);
+  if (r != 0 || (unsigned int)n_read != slen) {
+    fprintf(stderr, "WARNING: Synchronous read failed.\n");
+    mRunning = false;
+  }
+
+  if (mustInvert) {
+    for (int i = 0; i < n_read; i += 2) {
+      iq_buf[i] = 255 - iq_buf[i];
+    }
+  }
+
+  std::vector<std::complex<float>> iq_vector;
+
+  //-------------------------------------------------------------------------------------------------------------
+  //  NOISE 
+  //---------------------
+    for (unsigned int i = 0; i < ElectrosenseContext::getInstance()->getAvgFactor(); i++) {
+      iq_vector.clear();
+      for (unsigned int j = 0; j < current_fft_size * 2; j = j + 2) {
+
+        iq_vector.push_back(std::complex<float>(
+          iq_buf[j + i * (current_fft_size - ElectrosenseContext::getInstance()->getSoverlap()) * 2],
+          iq_buf[j + 1 + i * (current_fft_size - ElectrosenseContext::getInstance()->getSoverlap()) * 2]));
+      }
+
+    if (center_freq > attack_freq_1 && center_freq < attack_freq_1 + attack_bw) {
+      std::complex<float> randomValue = dist(urandom);
+      for(unsigned int x = 0; x < iq_vector.size(); x++) {
+        iq_vector[x] = iq_vector[x] + randomValue;
+      }
+    }
 
 //----------------------------------------------------------------------------------------------------------------
 
 
+    // TODO: Id should be the ethernet MAC
+    SpectrumSegment *segment = new SpectrumSegment(
+        -1000, current_time, center_freq, ElectrosenseContext::getInstance()->getSamplingRate(), iq_vector);
+    mQueueOut->enqueue(segment);
 
-//----------------------------------------------------------------------------------------------------------
-// SPOOF 
-//---------------------------------------
-    // for (unsigned int i = 0; i < ElectrosenseContext::getInstance()->getAvgFactor(); i++) {
-    //   iq_vector.clear();
-    //   for (unsigned int j = 0; j < current_fft_size * 2; j = j + 2) {
-    //     iq_vector.push_back(std::complex<float>(
-    //       iq_buf[j + i * (current_fft_size - ElectrosenseContext::getInstance()->getSoverlap()) * 2],
-    //       iq_buf[j + 1 + i * (current_fft_size - ElectrosenseContext::getInstance()->getSoverlap()) * 2]));
-    //   }
-
-    //   //--The segment that needs to be copied
-    // if (center_freq > attacked_freq_1 && center_freq < attacked_freq_1 + attack_bw) {
-    //     if (i == ElectrosenseContext::getInstance()->getAvgFactor() -1){
-    //       spoof_source_segment.push_back(iq_vector);
-    //     }
-    //   }
-    //   //--The segment the copied PSD values are pasted into
-    //   else if (center_freq > attacked_freq_2 && center_freq < attacked_freq_2 + attack_bw) {
-    //       iq_vector.clear();
-    //       std::complex<float> randomValue = dist(urandom);
-    //       for(unsigned int i = 0; i < spoof_source_segment[current_frequency].size(); i++) {
-    //         iq_vector.push_back(spoof_source_segment[current_frequency][i]+randomValue);
-    //       }
-    //       if (i == ElectrosenseContext::getInstance()->getAvgFactor() -1) {
-    //         current_frequency++;
-    //       }
-    //   }
-
-
-    //   if (center_freq > attacked_freq_2 + attack_bw) {
-    //     spoof_source_segment.clear();
-    //     current_frequency = 0;
-    //   }
-
-//-------------------------------------------------------------------------------------------------------
-
-//--------------------------------------------------------------------------------------------------
-// FREEZE
-//--------------------------------------------------------------------------------------------------
-
-    // for (unsigned int i = 0; i < ElectrosenseContext::getInstance()->getAvgFactor(); i++) {
-    //   iq_vector.clear();
-    //   for (unsigned int j = 0; j < current_fft_size * 2; j = j + 2) {
-    //     iq_vector.push_back(std::complex<float>(
-    //       iq_buf[j + i * (current_fft_size - ElectrosenseContext::getInstance()->getSoverlap()) * 2],
-    //       iq_buf[j + 1 + i * (current_fft_size - ElectrosenseContext::getInstance()->getSoverlap()) * 2]));
-    //   }
-
-    //   //-- Indicates the frequency segment affected by the attack
-    // if (center_freq > attacked_freq_1 && center_freq < attacked_freq_1 + attack_bw) {
-    //     //-- Create the source array on the first iteration
-    //     if (!freeze){
-    //       if (i == ElectrosenseContext::getInstance()->getAvgFactor() -1){
-    //         freeze_source_segment.push_back(iq_vector);
-    //       }
-    //     }else{
-    //       iq_vector.clear();
-    //       for(unsigned int i = 0; i < freeze_source_segment[current_frequency].size(); i++) {
-    //         iq_vector.push_back(freeze_source_segment[current_frequency][i]);
-    //       }
-    //       if (i == ElectrosenseContext::getInstance()->getAvgFactor() -1) {
-    //         current_frequency++;
-    //       }
-    //     }
-    //   }
-
-    //   if (!freeze  && center_freq > attacked_freq_1 + attack_bw) {
-    //     freeze = true;
-    //   }
-
-    //   if (current_frequency != 0 && center_freq > attacked_freq_1 + attack_bw) current_frequency = 0;
-
-//----------------------------------------------------------------------------------------------------------
-
-
-//-------------------------------------------------------------------------------------------------------------
-// DELAY
-//-------------------------------------------------------------------
-    //  for (unsigned int i = 0; i < ElectrosenseContext::getInstance()->getAvgFactor(); i++) {
-    //    iq_vector.clear();
-    //    for (unsigned int j = 0; j < current_fft_size * 2; j = j + 2) {
-    //      iq_vector.push_back(std::complex<float>(
-    //        iq_buf[j + i * (current_fft_size - ElectrosenseContext::getInstance()->getSoverlap()) * 2],
-    //        iq_buf[j + 1 + i * (current_fft_size - ElectrosenseContext::getInstance()->getSoverlap()) * 2]));
-    //    }
-
-    //    //-- Indicates the frequency segment affected by the attack
-    //    if (center_freq > attacked_freq_1 && center_freq < attacked_freq_1 + attack_bw) {
-    //      //-- Init phase: create 3d array with frequencies x delay x values
-    //      if (init && i == 0){
-    //        std::vector<std::vector<std::complex<float>>> tmp_vector(delay);
-    //        tmp_vector.insert(tmp_vector.begin(), iq_vector);
-    //        delay_source_segment.push_back(tmp_vector);
-    //        affected_frequencies++;
-    //      }
-    //      //-- Fill the source array with the current data
-    //      if (!init && i == 0){
-    //        //-- If the array is full, save the previous data to a temporary variable
-    //        if (full){
-    //          tmp_iq_vector.clear();
-    //          for(unsigned int i = 0; i < delay_source_segment[current_frequency][current_iteration].size(); i++) {
-    //            tmp_iq_vector.push_back(delay_source_segment[current_frequency][current_iteration][i]);
-    //          }
-    //          delay_source_segment[current_frequency][current_iteration].clear();
-    //        }
-    //        for(unsigned int i = 0; i < iq_vector.size(); i++) {
-    //          delay_source_segment[current_frequency][current_iteration].push_back(iq_vector[i]);
-    //        }
-    //        if (full){
-    //          iq_vector.clear();
-    //          for(unsigned int i = 0; i < tmp_iq_vector.size(); i++) {
-    //            iq_vector.push_back(tmp_iq_vector[i]);
-    //          }
-    //        }
-    //      }
-
-    //      if (!init && i == ElectrosenseContext::getInstance()->getAvgFactor() -1) {
-    //        current_frequency++;
-    //      }
-
-    //       //-- when all frequencies are saved and/or modified go to next iteration
-    //      if (i == ElectrosenseContext::getInstance()->getAvgFactor() -1 && current_frequency == affected_frequencies) {
-    //        current_frequency = 0;
-    //        current_iteration++;
-    //        //-- when the defined delay is reached, start again
-    //        if (current_iteration > delay){
-    //          full = true;
-    //          current_iteration = 0;
-    //          current_frequency = 0;
-    //        }
-    //      }
-
-    //     }
-
-    //    //-- when init is done for all frequencies, change to "normal" mode
-    //    if (init && center_freq > attacked_freq_1 + attack_bw){
-    //      init = false;
-    //      current_iteration++;
-    //    }
-
-
-//--------------------------------------------------------------------------------------------------------
-
-      // TODO: Id should be the ethernet MAC
-      //std::cout<<"before creation"<<std::endl;
-      SpectrumSegment *segment = new SpectrumSegment(
-          -1000, current_time, center_freq, ElectrosenseContext::getInstance()->getSamplingRate(), iq_vector);
-      mQueueOut->enqueue(segment);
-
-    }
-    // Last check to see if
-  //   struct timespec tdiff;
-
-  //   timespec_diff(&tinit, &current_time, &tdiff);
-
-  //   if (duration != 0 && (tdiff.tv_sec >= duration)) {
-  //     break;
-  //   }
+  }
   }
 
   delete (mSeqHopping);
-}
+}  
+
+
+void rtlsdrDriver::SyncSampling_spoof() {
+
+  const int BULK_TRANSFER_MULTIPLE = 512;
+
+  std::cout << "rtlsdrDriver::run" << std::endl;
+
+  mSeqHopping = new SequentialHopping();
+  uint64_t center_freq = 0, previous_freq = 0, fft_size = 0, slen = 0;
+  uint64_t proxy_freq = 0, previous_proxy_freq = 0;
+  bool mustInvert;
+
+  uint8_t *iq_buf = NULL;
+  bool direct_sampling = true;
+
+  
+  
+  //----------------------------------------------------------------------------------------------------------
+  // SPOOF  - Setup
+  //---------------------
+  std::uniform_real_distribution<double> dist(0, 20);
+  std::random_device urandom("/dev/urandom");
+  int current_frequency = 0;
+  std::vector<std::vector<std::complex<float>>>  spoof_source_segment;
+  uint64_t attack_freq_1 = ElectrosenseContext::getInstance()->getAttackFreq1();
+  uint64_t attack_freq_2 = ElectrosenseContext::getInstance()->getAttackFreq2();
+  uint64_t attack_bw = ElectrosenseContext::getInstance()->getBandwidth();
+
+while (mRunning) {
+
+  // Introduce here the concept of segment per band (before jumping).
+
+  center_freq = mSeqHopping->nextHop();
+  mustInvert = false;
+  // std::cout << "Currently sampling with center frequency: " << center_freq
+  //       << std::endl;
+
+  if (previous_freq != center_freq) {
+    previous_freq = center_freq;
+
+    // RTL-SDR as proxy of the down-converter
+    if (mConverterEnabled) {
+
+      if (!converterTune(&mConverterDriver, center_freq / 1e3, &proxy_freq,
+                          &mustInvert)) {
+        mRunning = false;
+        throw std::logic_error("Failed to converterTune");
+      }
+        // printf("Tuning to %llu Hz, receiving on %llu kHz\n", center_freq,
+      // proxy_freq);
+
+      if (previous_proxy_freq != proxy_freq) {
+
+        previous_proxy_freq = proxy_freq;
+
+        int r = rtlsdr_set_center_freq(mDevice, proxy_freq * 1e3);
+        if (r != 0) {
+          std::cerr << "Error: unable to set center frequency: "<< proxy_freq * 1e3 << std::endl;
+          continue;
+        }
+
+        // Reset the buffer
+        if (rtlsdr_reset_buffer(mDevice) < 0) {
+          std::cerr << "Error: unable to reset RTLSDR buffer" << std::endl;
+          mRunning = false;
+        }
+      }
+
+    // Native RTL-SDR
+    } else {
+
+        // Direct sampling
+        if (ElectrosenseContext::getInstance()->getDirectSamplingMode() > 0) {
+            if (center_freq >= 24e6 && direct_sampling) {
+
+                if (rtlsdr_set_direct_sampling(mDevice, 0) < 0) {
+                    std::cerr << "Error: unable to disable direct_sampling" << std::endl;
+                    throw std::logic_error("Fatal Error, unable to disable direct_sampling");
+                }
+
+                int gain = ElectrosenseContext::getInstance()->getGain();
+                rtlsdr_set_agc_mode(mDevice, 0);
+                int r = rtlsdr_set_tuner_gain_mode(mDevice, 1);
+                if (r < 0) {
+                    std::cerr << "ERROR: Failed to enable manual gain mode" << std::endl;
+                    throw std::logic_error("Fatal Error");
+                }
+                r = rtlsdr_set_tuner_gain(mDevice, gain * 10);
+                if (r < 0) {
+                    std::cerr << "ERROR: Failed to set manual tuner gain" << std::endl;
+                    throw std::logic_error("Fatal Error");
+                } else {
+                    int g = rtlsdr_get_tuner_gain(mDevice);
+                    std::cout << "Gain set to " << g / 10 << std::endl;
+                }
+
+
+                direct_sampling = false;
+
+            } else if (center_freq < 24e6 && !direct_sampling) {
+
+
+                if (rtlsdr_set_direct_sampling(mDevice, 2) < 0) {
+                    std::cerr << "Error: unable to set direct_sampling" << std::endl;
+                    throw std::logic_error("Fatal Error, unable to set direct_sampling");
+                }
+                rtlsdr_set_tuner_gain_mode(mDevice, 0);
+                rtlsdr_set_agc_mode(mDevice, 1);
+                direct_sampling = true;
+            }
+        }
+
+      int r = rtlsdr_set_center_freq(mDevice, center_freq);
+      if (r != 0) {
+        std::cerr << "Error: unable to set center frequency: " << center_freq << std::endl;
+        continue;
+      }
+
+      // Reset the buffer
+      if (rtlsdr_reset_buffer(mDevice) < 0) {
+        std::cerr << "Error: unable to reset RTLSDR buffer" << std::endl;
+        mRunning = false;
+      }
+    }
+  }
+
+  unsigned int current_fft_size =
+      1 << ElectrosenseContext::getInstance()->getLog2FftSize();
+
+  if (fft_size != current_fft_size) {
+
+    fft_size = current_fft_size;
+
+    slen = ((current_fft_size -
+              ElectrosenseContext::getInstance()->getSoverlap()) *
+                ElectrosenseContext::getInstance()->getAvgFactor() +
+            ElectrosenseContext::getInstance()->getSoverlap()) * 2;
+
+    // NOTE: libusb_bulk_transfer for RTL-SDR seems to crash when not reading
+    // multiples of 512 (BULK_TRANSFER_MULTIPLE)
+    if (slen % BULK_TRANSFER_MULTIPLE != 0)
+      slen = slen + (BULK_TRANSFER_MULTIPLE - (slen % BULK_TRANSFER_MULTIPLE));
+
+    iq_buf = (uint8_t *)realloc(iq_buf, slen * sizeof(uint8_t));
+  }
+
+  int n_read;
+  struct timespec current_time;
+  clock_gettime(CLOCK_REALTIME, &current_time);
+
+  int r = rtlsdr_read_sync(mDevice, iq_buf, slen, &n_read);
+  if (r != 0 || (unsigned int)n_read != slen) {
+    fprintf(stderr, "WARNING: Synchronous read failed.\n");
+    mRunning = false;
+  }
+
+  if (mustInvert) {
+    for (int i = 0; i < n_read; i += 2) {
+      iq_buf[i] = 255 - iq_buf[i];
+    }
+  }
+
+  std::vector<std::complex<float>> iq_vector;
+
+  //----------------------------------------------------------------------------------------------------------
+  // SPOOF 
+  //---------------------------------------
+    for (unsigned int i = 0; i < ElectrosenseContext::getInstance()->getAvgFactor(); i++) {
+      iq_vector.clear();
+      for (unsigned int j = 0; j < current_fft_size * 2; j = j + 2) {
+        iq_vector.push_back(std::complex<float>(
+          iq_buf[j + i * (current_fft_size - ElectrosenseContext::getInstance()->getSoverlap()) * 2],
+          iq_buf[j + 1 + i * (current_fft_size - ElectrosenseContext::getInstance()->getSoverlap()) * 2]));
+      }
+
+      //--The segment that needs to be copied
+    if (center_freq > attack_freq_1 && center_freq < attack_freq_1 + attack_bw) {
+      if (i == ElectrosenseContext::getInstance()->getAvgFactor() -1){
+        spoof_source_segment.push_back(iq_vector);
+      }
+    }
+    //--The segment the copied PSD values are pasted into
+    else if (center_freq > attack_freq_2 && center_freq < attack_freq_2 + attack_bw) {
+      iq_vector.clear();
+      std::complex<float> randomValue = dist(urandom);
+      for(unsigned int i = 0; i < spoof_source_segment[current_frequency].size(); i++) {
+        iq_vector.push_back(spoof_source_segment[current_frequency][i]+randomValue);
+      }
+      if (i == ElectrosenseContext::getInstance()->getAvgFactor() -1) {
+        current_frequency++;
+      }
+    }
+
+
+    if (center_freq > attack_freq_2 + attack_bw) {
+      spoof_source_segment.clear();
+      current_frequency = 0;
+    }
+
+//-------------------------------------------------------------------------------------------------------
+
+
+    // TODO: Id should be the ethernet MAC
+    SpectrumSegment *segment = new SpectrumSegment(
+        -1000, current_time, center_freq, ElectrosenseContext::getInstance()->getSamplingRate(), iq_vector);
+    mQueueOut->enqueue(segment);
+
+  }
+  }
+
+  delete (mSeqHopping);
+}  
+
+
+void rtlsdrDriver::SyncSampling_freeze() {
+
+  const int BULK_TRANSFER_MULTIPLE = 512;
+
+  std::cout << "rtlsdrDriver::run" << std::endl;
+
+  mSeqHopping = new SequentialHopping();
+  uint64_t center_freq = 0, previous_freq = 0, fft_size = 0, slen = 0;
+  uint64_t proxy_freq = 0, previous_proxy_freq = 0;
+  bool mustInvert;
+
+  uint8_t *iq_buf = NULL;
+  bool direct_sampling = true;
+ 
+  //----------------------------------------------------------------------------------------------------------
+  // FREEZE - Setup
+  //---------------------
+  std::vector<std::vector<std::complex<float>>> freeze_source_segment;
+  int current_frequency = 0;
+  bool freeze = false;
+  uint64_t attack_freq_1 = ElectrosenseContext::getInstance()->getAttackFreq1();
+  uint64_t attack_bw = ElectrosenseContext::getInstance()->getBandwidth();
+
+while (mRunning) {
+
+  // Introduce here the concept of segment per band (before jumping).
+
+  center_freq = mSeqHopping->nextHop();
+  mustInvert = false;
+  // std::cout << "Currently sampling with center frequency: " << center_freq
+  //       << std::endl;
+
+  if (previous_freq != center_freq) {
+    previous_freq = center_freq;
+
+    // RTL-SDR as proxy of the down-converter
+    if (mConverterEnabled) {
+
+      if (!converterTune(&mConverterDriver, center_freq / 1e3, &proxy_freq,
+                          &mustInvert)) {
+        mRunning = false;
+        throw std::logic_error("Failed to converterTune");
+      }
+        // printf("Tuning to %llu Hz, receiving on %llu kHz\n", center_freq,
+      // proxy_freq);
+
+      if (previous_proxy_freq != proxy_freq) {
+
+        previous_proxy_freq = proxy_freq;
+
+        int r = rtlsdr_set_center_freq(mDevice, proxy_freq * 1e3);
+        if (r != 0) {
+          std::cerr << "Error: unable to set center frequency: "<< proxy_freq * 1e3 << std::endl;
+          continue;
+        }
+
+        // Reset the buffer
+        if (rtlsdr_reset_buffer(mDevice) < 0) {
+          std::cerr << "Error: unable to reset RTLSDR buffer" << std::endl;
+          mRunning = false;
+        }
+      }
+
+    // Native RTL-SDR
+    } else {
+
+        // Direct sampling
+        if (ElectrosenseContext::getInstance()->getDirectSamplingMode() > 0) {
+            if (center_freq >= 24e6 && direct_sampling) {
+
+                if (rtlsdr_set_direct_sampling(mDevice, 0) < 0) {
+                    std::cerr << "Error: unable to disable direct_sampling" << std::endl;
+                    throw std::logic_error("Fatal Error, unable to disable direct_sampling");
+                }
+
+                int gain = ElectrosenseContext::getInstance()->getGain();
+                rtlsdr_set_agc_mode(mDevice, 0);
+                int r = rtlsdr_set_tuner_gain_mode(mDevice, 1);
+                if (r < 0) {
+                    std::cerr << "ERROR: Failed to enable manual gain mode" << std::endl;
+                    throw std::logic_error("Fatal Error");
+                }
+                r = rtlsdr_set_tuner_gain(mDevice, gain * 10);
+                if (r < 0) {
+                    std::cerr << "ERROR: Failed to set manual tuner gain" << std::endl;
+                    throw std::logic_error("Fatal Error");
+                } else {
+                    int g = rtlsdr_get_tuner_gain(mDevice);
+                    std::cout << "Gain set to " << g / 10 << std::endl;
+                }
+
+
+                direct_sampling = false;
+
+            } else if (center_freq < 24e6 && !direct_sampling) {
+
+
+                if (rtlsdr_set_direct_sampling(mDevice, 2) < 0) {
+                    std::cerr << "Error: unable to set direct_sampling" << std::endl;
+                    throw std::logic_error("Fatal Error, unable to set direct_sampling");
+                }
+                rtlsdr_set_tuner_gain_mode(mDevice, 0);
+                rtlsdr_set_agc_mode(mDevice, 1);
+                direct_sampling = true;
+            }
+        }
+
+      int r = rtlsdr_set_center_freq(mDevice, center_freq);
+      if (r != 0) {
+        std::cerr << "Error: unable to set center frequency: " << center_freq << std::endl;
+        continue;
+      }
+
+      // Reset the buffer
+      if (rtlsdr_reset_buffer(mDevice) < 0) {
+        std::cerr << "Error: unable to reset RTLSDR buffer" << std::endl;
+        mRunning = false;
+      }
+    }
+  }
+
+  unsigned int current_fft_size =
+      1 << ElectrosenseContext::getInstance()->getLog2FftSize();
+
+  if (fft_size != current_fft_size) {
+
+    fft_size = current_fft_size;
+
+    slen = ((current_fft_size -
+              ElectrosenseContext::getInstance()->getSoverlap()) *
+                ElectrosenseContext::getInstance()->getAvgFactor() +
+            ElectrosenseContext::getInstance()->getSoverlap()) * 2;
+
+    // NOTE: libusb_bulk_transfer for RTL-SDR seems to crash when not reading
+    // multiples of 512 (BULK_TRANSFER_MULTIPLE)
+    if (slen % BULK_TRANSFER_MULTIPLE != 0)
+      slen = slen + (BULK_TRANSFER_MULTIPLE - (slen % BULK_TRANSFER_MULTIPLE));
+
+    iq_buf = (uint8_t *)realloc(iq_buf, slen * sizeof(uint8_t));
+  }
+
+  int n_read;
+  struct timespec current_time;
+  clock_gettime(CLOCK_REALTIME, &current_time);
+
+  int r = rtlsdr_read_sync(mDevice, iq_buf, slen, &n_read);
+  if (r != 0 || (unsigned int)n_read != slen) {
+    fprintf(stderr, "WARNING: Synchronous read failed.\n");
+    mRunning = false;
+  }
+
+  if (mustInvert) {
+    for (int i = 0; i < n_read; i += 2) {
+      iq_buf[i] = 255 - iq_buf[i];
+    }
+  }
+
+  std::vector<std::complex<float>> iq_vector;
+
+  //--------------------------------------------------------------------------------------------------
+  // FREEZE
+  //--------------------------------------------------------------------------------------------------
+
+    for (unsigned int i = 0; i < ElectrosenseContext::getInstance()->getAvgFactor(); i++) {
+      iq_vector.clear();
+      for (unsigned int j = 0; j < current_fft_size * 2; j = j + 2) {
+        iq_vector.push_back(std::complex<float>(
+          iq_buf[j + i * (current_fft_size - ElectrosenseContext::getInstance()->getSoverlap()) * 2],
+          iq_buf[j + 1 + i * (current_fft_size - ElectrosenseContext::getInstance()->getSoverlap()) * 2]));
+      }
+
+      //-- Indicates the frequency segment affected by the attack
+    if (center_freq > attack_freq_1 && center_freq < attack_freq_1 + attack_bw) {
+        //-- Create the source array on the first iteration
+        if (!freeze){
+          if (i == ElectrosenseContext::getInstance()->getAvgFactor() -1){
+            freeze_source_segment.push_back(iq_vector);
+          }
+        }else{
+          iq_vector.clear();
+          for(unsigned int i = 0; i < freeze_source_segment[current_frequency].size(); i++) {
+            iq_vector.push_back(freeze_source_segment[current_frequency][i]);
+          }
+          if (i == ElectrosenseContext::getInstance()->getAvgFactor() -1) {
+            current_frequency++;
+          }
+        }
+      }
+
+      if (!freeze  && center_freq > attack_freq_1 + attack_bw) {
+        freeze = true;
+      }
+
+      if (current_frequency != 0 && center_freq > attack_freq_1 + attack_bw) current_frequency = 0;
+
+//----------------------------------------------------------------------------------------------------------
+
+
+
+    // TODO: Id should be the ethernet MAC
+    SpectrumSegment *segment = new SpectrumSegment(
+        -1000, current_time, center_freq, ElectrosenseContext::getInstance()->getSamplingRate(), iq_vector);
+    mQueueOut->enqueue(segment);
+
+  }
+  }
+
+  delete (mSeqHopping);
+}  
+
+
+void rtlsdrDriver::SyncSampling_delay() {
+
+  const int BULK_TRANSFER_MULTIPLE = 512;
+
+  std::cout << "rtlsdrDriver::run" << std::endl;
+
+  mSeqHopping = new SequentialHopping();
+  uint64_t center_freq = 0, previous_freq = 0, fft_size = 0, slen = 0;
+  uint64_t proxy_freq = 0, previous_proxy_freq = 0;
+  bool mustInvert;
+
+  uint8_t *iq_buf = NULL;
+  bool direct_sampling = true;
+  
+  //----------------------------------------------------------------------------------------------------------
+  // DELAY - Setup
+  //---------------------
+  int affected_frequencies = 0;
+  int current_frequency = 0;
+  int current_iteration = 0;
+  int delay = 10;
+  bool init = true;
+  bool full = false;
+  std::vector<std::vector<std::vector<std::complex<float>>>> delay_source_segment;
+  std::vector<std::complex<float>> tmp_iq_vector;
+  uint64_t attack_freq_1 = ElectrosenseContext::getInstance()->getAttackFreq1();
+  uint64_t attack_bw = ElectrosenseContext::getInstance()->getBandwidth();
+
+while (mRunning) {
+
+  // Introduce here the concept of segment per band (before jumping).
+
+  center_freq = mSeqHopping->nextHop();
+  mustInvert = false;
+  // std::cout << "Currently sampling with center frequency: " << center_freq
+  //       << std::endl;
+
+  if (previous_freq != center_freq) {
+    previous_freq = center_freq;
+
+    // RTL-SDR as proxy of the down-converter
+    if (mConverterEnabled) {
+
+      if (!converterTune(&mConverterDriver, center_freq / 1e3, &proxy_freq,
+                          &mustInvert)) {
+        mRunning = false;
+        throw std::logic_error("Failed to converterTune");
+      }
+        // printf("Tuning to %llu Hz, receiving on %llu kHz\n", center_freq,
+      // proxy_freq);
+
+      if (previous_proxy_freq != proxy_freq) {
+
+        previous_proxy_freq = proxy_freq;
+
+        int r = rtlsdr_set_center_freq(mDevice, proxy_freq * 1e3);
+        if (r != 0) {
+          std::cerr << "Error: unable to set center frequency: "<< proxy_freq * 1e3 << std::endl;
+          continue;
+        }
+
+        // Reset the buffer
+        if (rtlsdr_reset_buffer(mDevice) < 0) {
+          std::cerr << "Error: unable to reset RTLSDR buffer" << std::endl;
+          mRunning = false;
+        }
+      }
+
+    // Native RTL-SDR
+    } else {
+
+        // Direct sampling
+        if (ElectrosenseContext::getInstance()->getDirectSamplingMode() > 0) {
+            if (center_freq >= 24e6 && direct_sampling) {
+
+                if (rtlsdr_set_direct_sampling(mDevice, 0) < 0) {
+                    std::cerr << "Error: unable to disable direct_sampling" << std::endl;
+                    throw std::logic_error("Fatal Error, unable to disable direct_sampling");
+                }
+
+                int gain = ElectrosenseContext::getInstance()->getGain();
+                rtlsdr_set_agc_mode(mDevice, 0);
+                int r = rtlsdr_set_tuner_gain_mode(mDevice, 1);
+                if (r < 0) {
+                    std::cerr << "ERROR: Failed to enable manual gain mode" << std::endl;
+                    throw std::logic_error("Fatal Error");
+                }
+                r = rtlsdr_set_tuner_gain(mDevice, gain * 10);
+                if (r < 0) {
+                    std::cerr << "ERROR: Failed to set manual tuner gain" << std::endl;
+                    throw std::logic_error("Fatal Error");
+                } else {
+                    int g = rtlsdr_get_tuner_gain(mDevice);
+                    std::cout << "Gain set to " << g / 10 << std::endl;
+                }
+
+
+                direct_sampling = false;
+
+            } else if (center_freq < 24e6 && !direct_sampling) {
+
+
+                if (rtlsdr_set_direct_sampling(mDevice, 2) < 0) {
+                    std::cerr << "Error: unable to set direct_sampling" << std::endl;
+                    throw std::logic_error("Fatal Error, unable to set direct_sampling");
+                }
+                rtlsdr_set_tuner_gain_mode(mDevice, 0);
+                rtlsdr_set_agc_mode(mDevice, 1);
+                direct_sampling = true;
+            }
+        }
+
+      int r = rtlsdr_set_center_freq(mDevice, center_freq);
+      if (r != 0) {
+        std::cerr << "Error: unable to set center frequency: " << center_freq << std::endl;
+        continue;
+      }
+
+      // Reset the buffer
+      if (rtlsdr_reset_buffer(mDevice) < 0) {
+        std::cerr << "Error: unable to reset RTLSDR buffer" << std::endl;
+        mRunning = false;
+      }
+    }
+  }
+
+  unsigned int current_fft_size =
+      1 << ElectrosenseContext::getInstance()->getLog2FftSize();
+
+  if (fft_size != current_fft_size) {
+
+    fft_size = current_fft_size;
+
+    slen = ((current_fft_size -
+              ElectrosenseContext::getInstance()->getSoverlap()) *
+                ElectrosenseContext::getInstance()->getAvgFactor() +
+            ElectrosenseContext::getInstance()->getSoverlap()) * 2;
+
+    // NOTE: libusb_bulk_transfer for RTL-SDR seems to crash when not reading
+    // multiples of 512 (BULK_TRANSFER_MULTIPLE)
+    if (slen % BULK_TRANSFER_MULTIPLE != 0)
+      slen = slen + (BULK_TRANSFER_MULTIPLE - (slen % BULK_TRANSFER_MULTIPLE));
+
+    iq_buf = (uint8_t *)realloc(iq_buf, slen * sizeof(uint8_t));
+  }
+
+  int n_read;
+  struct timespec current_time;
+  clock_gettime(CLOCK_REALTIME, &current_time);
+
+  int r = rtlsdr_read_sync(mDevice, iq_buf, slen, &n_read);
+  if (r != 0 || (unsigned int)n_read != slen) {
+    fprintf(stderr, "WARNING: Synchronous read failed.\n");
+    mRunning = false;
+  }
+
+  if (mustInvert) {
+    for (int i = 0; i < n_read; i += 2) {
+      iq_buf[i] = 255 - iq_buf[i];
+    }
+  }
+
+  std::vector<std::complex<float>> iq_vector;
+
+  //-------------------------------------------------------------------------------------------------------------
+  // DELAY
+  //-------------------------------------------------------------------
+    for (unsigned int i = 0; i < ElectrosenseContext::getInstance()->getAvgFactor(); i++) {
+      iq_vector.clear();
+      for (unsigned int j = 0; j < current_fft_size * 2; j = j + 2) {
+        iq_vector.push_back(std::complex<float>(
+          iq_buf[j + i * (current_fft_size - ElectrosenseContext::getInstance()->getSoverlap()) * 2],
+          iq_buf[j + 1 + i * (current_fft_size - ElectrosenseContext::getInstance()->getSoverlap()) * 2]));
+      }
+
+      //-- Indicates the frequency segment affected by the attack
+      if (center_freq > attack_freq_1 && center_freq < attack_freq_1 + attack_bw) {
+        //-- Init phase: create 3d array with frequencies x delay x values
+        if (init && i == 0){
+          std::vector<std::vector<std::complex<float>>> tmp_vector(delay);
+          tmp_vector.insert(tmp_vector.begin(), iq_vector);
+          delay_source_segment.push_back(tmp_vector);
+          affected_frequencies++;
+        }
+        //-- Fill the source array with the current data
+        if (!init && i == 0){
+          //-- If the array is full, save the previous data to a temporary variable
+          if (full){
+            tmp_iq_vector.clear();
+            for(unsigned int i = 0; i < delay_source_segment[current_frequency][current_iteration].size(); i++) {
+              tmp_iq_vector.push_back(delay_source_segment[current_frequency][current_iteration][i]);
+            }
+            delay_source_segment[current_frequency][current_iteration].clear();
+          }
+          for(unsigned int i = 0; i < iq_vector.size(); i++) {
+            delay_source_segment[current_frequency][current_iteration].push_back(iq_vector[i]);
+          }
+          if (full){
+            iq_vector.clear();
+            for(unsigned int i = 0; i < tmp_iq_vector.size(); i++) {
+              iq_vector.push_back(tmp_iq_vector[i]);
+            }
+          }
+        }
+
+        if (!init && i == ElectrosenseContext::getInstance()->getAvgFactor() -1) {
+          current_frequency++;
+        }
+
+        //-- when all frequencies are saved and/or modified go to next iteration
+        if (i == ElectrosenseContext::getInstance()->getAvgFactor() -1 && current_frequency == affected_frequencies) {
+          current_frequency = 0;
+          current_iteration++;
+          //-- when the defined delay is reached, start again
+          if (current_iteration > delay){
+            full = true;
+            current_iteration = 0;
+            current_frequency = 0;
+          }
+        }
+
+      }
+
+      //-- when init is done for all frequencies, change to "normal" mode
+      if (init && center_freq > attack_freq_1 + attack_bw){
+        init = false;
+        current_iteration++;
+      }
+    //--------------------------------------------------------------------------------------------------------
+
+    // TODO: Id should be the ethernet MAC
+    SpectrumSegment *segment = new SpectrumSegment(
+        -1000, current_time, center_freq, ElectrosenseContext::getInstance()->getSamplingRate(), iq_vector);
+    mQueueOut->enqueue(segment);
+
+  }
+  }
+
+  delete (mSeqHopping);
+}  
+
 
 int rtlsdrDriver::stop() {
   mRunning = false;

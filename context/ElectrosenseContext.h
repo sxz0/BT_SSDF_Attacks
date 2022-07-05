@@ -55,6 +55,14 @@ const unsigned long DEFAULT_START_TIME_SAMPLING = 0;
 const std::string DEFAULT_IFACE = "eth0";
 const int BIAS_TEE_ENABLE = 0;
 
+// SSDF Attacks - Default values
+const std::string DEFAULT_MODE="normal";
+const uint64_t DEFAULT_BANDWIDTH=20000000;
+const uint64_t DEFAULT_ATTACK_SEGMENT_1=380000000;
+const uint64_t DEFAULT_ATTACK_SEGMENT_2=420000000;
+const std::string DEFAULT_MODIFIED_COMPONENT="NONE";
+const uint64_t DEFAULT_FFT_ATTACK_IMPACT=3;
+
 // Hopping Strategies
 const int SEQUENTIAL_HOPPING_STRATEGY = 0;
 const int RANDOM_HOPPING_STRATEGY = 1;
@@ -152,6 +160,25 @@ public:
   unsigned int getGainDecoder() { return mGainDecoder; };
   void setGainDecoder(unsigned int gain) { mGainDecoder = gain; };
 
+  // SSDF Attacks
+  const std::string &getMode() const;
+  void setMode(const std::string &mode);
+  
+  uint64_t getBandwidth() const;
+  void setBandwidth(uint64_t bandwidth);
+  
+  uint64_t getAttackFreq1() const;
+  void setAttackFreq1(uint64_t attackFreq1);
+
+  uint64_t getAttackFreq2() const;
+  void setAttackFreq2(uint64_t attackFreq2);
+
+  const std::string &getModifiedComponent() const;
+  void setModifiedComponent(const std::string &modifiedComponent);
+
+  unsigned int getFFTAttackImpact() const;
+  void setFFTAttackImpact(unsigned int FFTAttackImpact);
+
 private:
   ElectrosenseContext() {
     setPipeline(DEFAULT_PIPELINE);
@@ -181,6 +208,12 @@ private:
     setOutputFileName(DEFAULT_OUTPUT_FILENAME);
     setStartTimeSampling(DEFAULT_START_TIME_SAMPLING);
     setDecoder(0);
+    setMode(DEFAULT_MODE);
+    setAttackFreq1(DEFAULT_ATTACK_SEGMENT_1);
+    setAttackFreq2(DEFAULT_ATTACK_SEGMENT_2);
+    setBandwidth(DEFAULT_BANDWIDTH);
+    setModifiedComponent(DEFAULT_MODIFIED_COMPONENT);
+    setFFTAttackImpact(DEFAULT_FFT_ATTACK_IMPACT);
   };
 
   static ElectrosenseContext *mInstance;
@@ -229,6 +262,14 @@ private:
   unsigned int mDecoder;
 
   unsigned int mGainDecoder;
+
+  // SSDF Attacks
+  std::string mMode;
+  uint64_t mBandwidth;
+  uint64_t mAttackFreq1;
+  uint64_t mAttackFreq2;
+  std::string mModifiedComponent;
+  unsigned int FFTAttackImpact;
 };
 
 #endif /* ELECTROSENSECONTEXT_H_ */

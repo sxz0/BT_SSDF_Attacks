@@ -77,7 +77,14 @@ public:
   // Stop
   int stop();
 
-  void SyncSampling();
+  void SyncSampling_normal();
+  void SyncSampling_repeat();
+  void SyncSampling_mimic();
+  void SyncSampling_confusion();
+  void SyncSampling_noise();
+  void SyncSampling_spoof();
+  void SyncSampling_freeze();
+  void SyncSampling_delay();
 
   void AsyncSampling();
 
