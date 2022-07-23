@@ -38,7 +38,7 @@ def main(argv):
         outp.close()
 
     t2 = time.time()
-    print(t2-t1)
+    print("Preprocessing finished in " + str(t2-t1))
 
 
 if __name__ == "__main__":
