@@ -14,13 +14,13 @@ $  sudo apt install git-core cmake librtlsdr-dev librtlsdr0 libliquid1d libliqui
 
 * Clone the repository into the Raspberry PI
 ```
-$ git clone https://github.com/RobinWassink/sensor-robin.git
+$ git clone https://github.com/RobinWassink/BT_SSDF_Attacks.git
 
 ```
 
 * Run the start script, which takes care of compiling, copying to the designated folder and starting the process. You might need to give it the permission with chmod. 
 ```
-cd sensor-robin
+cd BT_SSDF_Attacks
 ./attacks/run.sh
 
 ```
