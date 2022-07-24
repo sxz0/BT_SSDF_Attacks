@@ -189,8 +189,6 @@ void FFT::ComputeFFT_normal(std::vector<SpectrumSegment *> &segments) {
     fft_execute(q_f);
     fft_shift(signal_freq, signal_len);
 
-    std::cout << "Current signal freq: " << signal_freq << std::endl;
-
     // std::cout << "Testing FFT for segment" << i << " with signal_len " << signal_len << " and signal_freq "<< signal_freq << std::endl;
     // std::cout << "Current valuesin signal_freq: ";
     // for(std::complex<float> i : signal_freq) 

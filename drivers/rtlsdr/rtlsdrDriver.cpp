@@ -65,6 +65,7 @@ int rtlsdrDriver::open(std::string device) {
 
   if (n_rtlsdr == 0) {
     std::cerr << "* Error: no RTL-SDR USB devices found" << std::endl;
+    
     throw std::logic_error("Fatal Error");
   }
 
@@ -472,6 +473,10 @@ void rtlsdrDriver::run() {
 
   mRunning = true;
 
+
+  //----------------------------------------------------------------------------------------------------------
+  // Run specific sampling function depending on the mode/behavior that has been defined
+  //----------------------------------------------------------------------------------------------------------
   const std::string mode = ElectrosenseContext::getInstance()->getMode();
   
   if (ElectrosenseContext::getInstance()->getPipeline().compare("PSD") == 0) {
@@ -511,6 +516,8 @@ void rtlsdrDriver::run() {
     } else{
       SyncSampling_normal();
     }
+
+  //----------------------------------------------------------------------------------------------------------
 
   } else {
 
@@ -767,10 +774,11 @@ void rtlsdrDriver::SyncSampling_repeat() {
   
   //----------------------------------------------------------------------------------------------------------
   // REPEAT - Setup
-  //---------------------
+  //----------------------------------------------------------------------------------------------------------
   std::vector<std::complex<float>> repeat_source_segment;
   uint64_t attack_freq_1 = ElectrosenseContext::getInstance()->getAttackFreq1();
   uint64_t attack_bw = ElectrosenseContext::getInstance()->getBandwidth();
+  //----------------------------------------------------------------------------------------------------------
 
 while (mRunning) {
 
@@ -909,8 +917,8 @@ while (mRunning) {
   std::vector<std::complex<float>> iq_vector;
 
   //-------------------------------------------------------------------------------------------------------------
-  //  REPEAT - Modifies Spectrum Segments with the the PSD values of one of them
-  //--------------------------------------------------------------------
+  //  REPEAT - Attack
+  //-------------------------------------------------------------------------------------------------------------
       for (unsigned int i = 0; i < ElectrosenseContext::getInstance()->getAvgFactor(); i++) {
         iq_vector.clear();
         for (unsigned int j = 0; j < current_fft_size * 2; j = j + 2) {
@@ -970,13 +978,13 @@ void rtlsdrDriver::SyncSampling_mimic() {
 
   //----------------------------------------------------------------------------------------------------------
   // MIMIC - Setup
-  //---------------------
+  //----------------------------------------------------------------------------------------------------------
   int current_frequency = 0;
   std::vector<std::vector<std::complex<float>>>  mimic_source_segment;
   uint64_t attack_freq_1 = ElectrosenseContext::getInstance()->getAttackFreq1();
   uint64_t attack_freq_2 = ElectrosenseContext::getInstance()->getAttackFreq2();
   uint64_t attack_bw = ElectrosenseContext::getInstance()->getBandwidth();
-
+  //----------------------------------------------------------------------------------------------------------
 
 while (mRunning) {
 
@@ -1114,9 +1122,9 @@ while (mRunning) {
 
   std::vector<std::complex<float>> iq_vector;
 
-  //----------------------------------------------------------------------------------------------------------
-  //  MIMIC - Copies one band in another band
-  //---------------------------------------
+  //-------------------------------------------------------------------------------------------------------------
+  //  Mimic - Attack
+  //-------------------------------------------------------------------------------------------------------------
 
 
     for (unsigned int i = 0; i < ElectrosenseContext::getInstance()->getAvgFactor(); i++) {
@@ -1181,14 +1189,14 @@ void rtlsdrDriver::SyncSampling_confusion() {
   
   //----------------------------------------------------------------------------------------------------------
   // CONFUSION/EXCHANGE/DISORDER - Setup
-  //---------------------
+  //----------------------------------------------------------------------------------------------------------
   int current_frequency = 0;
   std::vector<std::vector<std::complex<float>>> confusion_source_segment_1;
   std::vector<std::vector<std::complex<float>>> confusion_source_segment_2;
   uint64_t attack_freq_1 = ElectrosenseContext::getInstance()->getAttackFreq1();
   uint64_t attack_freq_2 = ElectrosenseContext::getInstance()->getAttackFreq2();
   uint64_t attack_bw = ElectrosenseContext::getInstance()->getBandwidth();
-
+  //----------------------------------------------------------------------------------------------------------
 
 
 while (mRunning) {
@@ -1328,8 +1336,8 @@ while (mRunning) {
   std::vector<std::complex<float>> iq_vector;
 
   //----------------------------------------------------------------------------------------------------------
-  //  CONFUSION/EXCHANGE/DISORDER
-  //--------------------
+  //  CONFUSION/EXCHANGE/DISORDER - Attack
+  //----------------------------------------------------------------------------------------------------------
 
     for (unsigned int i = 0; i < ElectrosenseContext::getInstance()->getAvgFactor(); i++) {
       iq_vector.clear();
@@ -1416,12 +1424,12 @@ void rtlsdrDriver::SyncSampling_noise() {
 
   //----------------------------------------------------------------------------------------------------------
   // NOISE - Setup
-  //---------------------
+  //----------------------------------------------------------------------------------------------------------
   std::uniform_real_distribution<double> dist(0, 20);
   std::random_device urandom("/dev/urandom");
-  // std::complex<float> randomValue = rand() % 5 + 5;
   uint64_t attack_freq_1 = ElectrosenseContext::getInstance()->getAttackFreq1();
   uint64_t attack_bw = ElectrosenseContext::getInstance()->getBandwidth();
+  //----------------------------------------------------------------------------------------------------------
 
 
 while (mRunning) {
@@ -1561,8 +1569,8 @@ while (mRunning) {
   std::vector<std::complex<float>> iq_vector;
 
   //-------------------------------------------------------------------------------------------------------------
-  //  NOISE 
-  //---------------------
+  //  NOISE - Attack
+  //----------------------------------------------------------------------------------------------------------
     for (unsigned int i = 0; i < ElectrosenseContext::getInstance()->getAvgFactor(); i++) {
       iq_vector.clear();
       for (unsigned int j = 0; j < current_fft_size * 2; j = j + 2) {
@@ -1574,12 +1582,13 @@ while (mRunning) {
 
     if (center_freq > attack_freq_1 && center_freq < attack_freq_1 + attack_bw) {
       std::complex<float> randomValue = dist(urandom);
+      std::cout << randomValue << std::endl;
       for(unsigned int x = 0; x < iq_vector.size(); x++) {
         iq_vector[x] = iq_vector[x] + randomValue;
       }
     }
 
-//----------------------------------------------------------------------------------------------------------------
+  //----------------------------------------------------------------------------------------------------------------
 
 
     // TODO: Id should be the ethernet MAC
@@ -1612,7 +1621,7 @@ void rtlsdrDriver::SyncSampling_spoof() {
   
   //----------------------------------------------------------------------------------------------------------
   // SPOOF  - Setup
-  //---------------------
+  //----------------------------------------------------------------------------------------------------------
   std::uniform_real_distribution<double> dist(0, 20);
   std::random_device urandom("/dev/urandom");
   int current_frequency = 0;
@@ -1758,8 +1767,8 @@ while (mRunning) {
   std::vector<std::complex<float>> iq_vector;
 
   //----------------------------------------------------------------------------------------------------------
-  // SPOOF 
-  //---------------------------------------
+  // SPOOF - Attack
+  //----------------------------------------------------------------------------------------------------------
     for (unsigned int i = 0; i < ElectrosenseContext::getInstance()->getAvgFactor(); i++) {
       iq_vector.clear();
       for (unsigned int j = 0; j < current_fft_size * 2; j = j + 2) {
@@ -1823,12 +1832,15 @@ void rtlsdrDriver::SyncSampling_freeze() {
  
   //----------------------------------------------------------------------------------------------------------
   // FREEZE - Setup
-  //---------------------
+  //----------------------------------------------------------------------------------------------------------
   std::vector<std::vector<std::complex<float>>> freeze_source_segment;
   int current_frequency = 0;
   bool freeze = false;
   uint64_t attack_freq_1 = ElectrosenseContext::getInstance()->getAttackFreq1();
   uint64_t attack_bw = ElectrosenseContext::getInstance()->getBandwidth();
+
+  //----------------------------------------------------------------------------------------------------------
+
 
 while (mRunning) {
 
@@ -1967,7 +1979,7 @@ while (mRunning) {
   std::vector<std::complex<float>> iq_vector;
 
   //--------------------------------------------------------------------------------------------------
-  // FREEZE
+  // FREEZE - Attack
   //--------------------------------------------------------------------------------------------------
 
     for (unsigned int i = 0; i < ElectrosenseContext::getInstance()->getAvgFactor(); i++) {
@@ -1978,7 +1990,7 @@ while (mRunning) {
           iq_buf[j + 1 + i * (current_fft_size - ElectrosenseContext::getInstance()->getSoverlap()) * 2]));
       }
 
-      //-- Indicates the frequency segment affected by the attack
+    //-- Indicates the frequency segment affected by the attack
     if (center_freq > attack_freq_1 && center_freq < attack_freq_1 + attack_bw) {
         //-- Create the source array on the first iteration
         if (!freeze){
@@ -1995,7 +2007,7 @@ while (mRunning) {
           }
         }
       }
-
+      //-- Start freezeing after initialisation
       if (!freeze  && center_freq > attack_freq_1 + attack_bw) {
         freeze = true;
       }
@@ -2045,6 +2057,7 @@ void rtlsdrDriver::SyncSampling_delay() {
   std::vector<std::complex<float>> tmp_iq_vector;
   uint64_t attack_freq_1 = ElectrosenseContext::getInstance()->getAttackFreq1();
   uint64_t attack_bw = ElectrosenseContext::getInstance()->getBandwidth();
+  //----------------------------------------------------------------------------------------------------------
 
 while (mRunning) {
 
@@ -2183,8 +2196,8 @@ while (mRunning) {
   std::vector<std::complex<float>> iq_vector;
 
   //-------------------------------------------------------------------------------------------------------------
-  // DELAY
-  //-------------------------------------------------------------------
+  // DELAY - Attack
+  //----------------------------------------------------------------------------------------------------------
     for (unsigned int i = 0; i < ElectrosenseContext::getInstance()->getAvgFactor(); i++) {
       iq_vector.clear();
       for (unsigned int j = 0; j < current_fft_size * 2; j = j + 2) {

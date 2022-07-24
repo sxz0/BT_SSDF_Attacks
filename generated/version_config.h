@@ -15,7 +15,7 @@ std::string getElectrosenseVersion()
 
 std::string getElectrosenseTimeCompilation()
 {
-    return "2022-07-22 22:03";
+    return "2022-07-23 19:54";
 }
 
 
