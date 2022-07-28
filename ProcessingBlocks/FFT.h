@@ -59,6 +59,9 @@ public:
 private:
   void run();
 
+  //----------------------------------------------------------------------------------------------------------
+  // SSDF Attacks modifications
+  //----------------------------------------------------------------------------------------------------------
   void ComputeFFT_normal(std::vector<SpectrumSegment *> &segments);
   void ComputeFFT_repeat(std::vector<SpectrumSegment *> &segments, std::vector<std::complex<float>> &repeat_source_segment);
   void ComputeFFT_mimic(std::vector<SpectrumSegment *> &segments, int &current_frequency,  std::vector<std::complex<float>> &mimic_source_segment);
@@ -67,6 +70,7 @@ private:
   void ComputeFFT_spoof(std::vector<SpectrumSegment *> &segments, int &current_frequency, std::vector<std::complex<float>> &spoof_source_segment);
   void ComputeFFT_freeze(std::vector<SpectrumSegment *> &segments, int &current_frequency, bool &freeze, std::vector<std::complex<float>>  &freeze_source_segment);
   void ComputeFFT_delay(std::vector<SpectrumSegment *> &segments, int &current_frequency, int &affected_frequencies, int &current_iteration, int &delay, bool &init, bool &full, std::vector<std::vector<std::vector<std::complex<float>>>> &delay_source_segment, std::vector<std::complex<float>> &tmp_signal_vector);
+  //----------------------------------------------------------------------------------------------------------
 
   ReaderWriterQueue<SpectrumSegment *> *mQueueOut;
   ReaderWriterQueue<SpectrumSegment *> *mQueueIn;

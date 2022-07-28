@@ -272,12 +272,16 @@ void parse_args(int argc, char *argv[]) {
     case 'i':
       ElectrosenseContext::getInstance()->setIface(strdup(optarg));
       break;
+    //----------------------------------------------------------------------------------------------------------
+    //  SSDF Attack additions 
+    //----------------------------------------------------------------------------------------------------------
     case 'j':
       ElectrosenseContext::getInstance()->setBandwidth(atoll(optarg));
       break;
     case 'v':
       ElectrosenseContext::getInstance()->setMode(strdup(optarg));
       break;
+    //----------------------------------------------------------------------------------------------------------
     default:
       usage(argv[0]);
     }
@@ -290,9 +294,12 @@ void parse_args(int argc, char *argv[]) {
   } else {
     ElectrosenseContext::getInstance()->setMinFreq(atoll(argv[optind]));
     ElectrosenseContext::getInstance()->setMaxFreq(atoll(argv[optind + 1]));
+    //----------------------------------------------------------------------------------------------------------
+    //  SSDF Attack additions 
+    //----------------------------------------------------------------------------------------------------------
     ElectrosenseContext::getInstance()->setAttackFreq1(atoll(argv[optind + 2]));
     ElectrosenseContext::getInstance()->setAttackFreq2(atoll(argv[optind + 3]));
-
+    //----------------------------------------------------------------------------------------------------------
   }
 }
 

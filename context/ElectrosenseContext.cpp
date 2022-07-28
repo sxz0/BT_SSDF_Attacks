@@ -78,6 +78,9 @@ void ElectrosenseContext::print() {
       std::cout << "Output type: " << (mOutputType ? "FLOAT" : "BYTE") << std::endl;
   }
 
+  //----------------------------------------------------------------------------------------------------------
+  //  SSDF Attack additions 
+  //----------------------------------------------------------------------------------------------------------
   std::cout << "---- SSDF attack settings -------------------------------------------------------- " << std::endl;
   std::cout << "Current mode: " << getMode() << std::endl;
   if(getMode().compare("normal") != 0){
@@ -90,10 +93,9 @@ void ElectrosenseContext::print() {
     std:: cout << std::endl;
   }
   std::cout << "---- SSDF attack settings -------------------------------------------------------- " << std::endl;
-
+  //----------------------------------------------------------------------------------------------------------
 
   std::cout << "---- End Config ---- " << std::endl << std::endl;
-
 
 }
 
@@ -355,7 +357,9 @@ void ElectrosenseContext::setBiasTee(int bt_enable) {
   mBiasTee = bt_enable;
 }
 
-// SSDF Attacks
+//----------------------------------------------------------------------------------------------------------
+//  SSDF Attack additions 
+//----------------------------------------------------------------------------------------------------------
 const std::string &ElectrosenseContext::getMode() const { return mMode; }
 
 void ElectrosenseContext::setMode(const std::string &mode) {
@@ -393,3 +397,4 @@ unsigned int ElectrosenseContext::getFFTAttackImpact() const { return FFTAttackI
 
 void ElectrosenseContext::setFFTAttackImpact(unsigned int mFFTAttackImpact) { FFTAttackImpact = mFFTAttackImpact; }
 ;
+//----------------------------------------------------------------------------------------------------------

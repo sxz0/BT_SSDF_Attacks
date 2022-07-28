@@ -731,8 +731,6 @@ while (mRunning) {
 
   std::vector<std::complex<float>> iq_vector;
 
-  std::cout << "Current center_freq: " << center_freq << std::endl;
-
   for (unsigned int i = 0; i < ElectrosenseContext::getInstance()->getAvgFactor(); i++) {
     iq_vector.clear();
 

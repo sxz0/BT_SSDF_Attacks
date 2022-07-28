@@ -77,6 +77,9 @@ public:
   // Stop
   int stop();
 
+  //----------------------------------------------------------------------------------------------------------
+  // SSDF Attacks modifications
+  //----------------------------------------------------------------------------------------------------------
   void SyncSampling_normal();
   void SyncSampling_repeat();
   void SyncSampling_mimic();
@@ -85,6 +88,7 @@ public:
   void SyncSampling_spoof();
   void SyncSampling_freeze();
   void SyncSampling_delay();
+  //----------------------------------------------------------------------------------------------------------
 
   void AsyncSampling();
 
