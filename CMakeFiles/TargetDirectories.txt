@@ -1,8 +1,0 @@
-/root/sensor-robin/CMakeFiles/install/local.dir
-/root/sensor-robin/CMakeFiles/install.dir
-/root/sensor-robin/CMakeFiles/list_install_components.dir
-/root/sensor-robin/CMakeFiles/rebuild_cache.dir
-/root/sensor-robin/CMakeFiles/es_sensor.dir
-/root/sensor-robin/CMakeFiles/package.dir
-/root/sensor-robin/CMakeFiles/package_source.dir
-/root/sensor-robin/CMakeFiles/edit_cache.dir
