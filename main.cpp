@@ -286,12 +286,11 @@ void parse_args(int argc, char *argv[]) {
       usage(argv[0]);
     }
   }
-
   // Non-option arguments
-  if (optind + 4 != argc) {
-    usage(argv[0]);
+  if (!((optind + 4 == argc) || (optind + 2 == argc))) {
+	usage(argv[0]);
 
-  } else {
+  } else if (optind+4==argc) {
     ElectrosenseContext::getInstance()->setMinFreq(atoll(argv[optind]));
     ElectrosenseContext::getInstance()->setMaxFreq(atoll(argv[optind + 1]));
     //----------------------------------------------------------------------------------------------------------
@@ -300,7 +299,14 @@ void parse_args(int argc, char *argv[]) {
     ElectrosenseContext::getInstance()->setAttackFreq1(atoll(argv[optind + 2]));
     ElectrosenseContext::getInstance()->setAttackFreq2(atoll(argv[optind + 3]));
     //----------------------------------------------------------------------------------------------------------
+  }else {
+    ElectrosenseContext::getInstance()->setMinFreq(atoll(argv[optind]));
+    ElectrosenseContext::getInstance()->setMaxFreq(atoll(argv[optind + 1]));
+    ElectrosenseContext::getInstance()->setAttackFreq1(1000000);
+    ElectrosenseContext::getInstance()->setAttackFreq2(1200000);
   }
+
+  
 }
 
 std::vector<Component *> vComponents;
